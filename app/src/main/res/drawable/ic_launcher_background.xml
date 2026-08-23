@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Deep Royal Midnight Navy Canvas -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#0B132B" />
+                <item android:offset="0.5" android:color="#1C2541" />
+                <item android:offset="1.0" android:color="#3A1C0A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Subtle Sacred Geometry Outer Ring -->
+    <path
+        android:pathData="M54,14 A40,40 0 1,0 54,94 A40,40 0 1,0 54,14"
+        android:strokeColor="#20FFB703"
+        android:strokeWidth="0.8" />
+    <path
+        android:pathData="M54,22 A32,32 0 1,0 54,86 A32,32 0 1,0 54,22"
+        android:strokeColor="#25FB8500"
+        android:strokeWidth="0.8" />
+</vector>

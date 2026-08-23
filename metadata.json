@@ -1,0 +1,6 @@
+{
+  "name": "SWAYAM GPT",
+  "description": "SWAYAM GPT - Sovereign On-Device & Edge AI Intelligence Platform with Vedic Sacred Geometry Aesthetics and Autonomous Multi-Agent Reasoning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

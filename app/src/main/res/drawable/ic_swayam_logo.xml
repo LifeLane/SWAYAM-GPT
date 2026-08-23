@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Background Mandala Circle -->
+    <path
+        android:pathData="M60,10 A50,50 0 1,0 60,110 A50,50 0 1,0 60,10">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="10"
+                android:startY="10"
+                android:endX="110"
+                android:endY="110"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#0B132B" />
+                <item android:offset="0.5" android:color="#1C2541" />
+                <item android:offset="1.0" android:color="#3A1C0A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Outer Solar Radiance -->
+    <path
+        android:pathData="M60,18 A42,42 0 1,0 60,102 A42,42 0 1,0 60,18"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFB703"
+        android:fillColor="#00000000" />
+
+    <!-- 8 Sun Rays (Ancient Surya Pattern) -->
+    <path
+        android:pathData="M60,13 L60,20 M60,100 L60,107 M13,60 L20,60 M100,60 L107,60 M27,27 L32,32 M88,88 L93,93 M27,93 L32,88 M88,27 L93,32"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FB8500"
+        android:strokeLineCap="round" />
+
+    <!-- Sacred Vedic Lotus (Padma) Petals -->
+    <!-- North -->
+    <path
+        android:pathData="M60,28 C56,38 52,47 60,60 C68,47 64,38 60,28 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="60"
+                android:startY="28"
+                android:endX="60"
+                android:endY="60"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFD166" />
+                <item android:offset="1.0" android:color="#F77F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- South -->
+    <path
+        android:pathData="M60,92 C56,82 52,73 60,60 C68,73 64,82 60,92 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="60"
+                android:startY="92"
+                android:endX="60"
+                android:endY="60"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFD166" />
+                <item android:offset="1.0" android:color="#F77F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- West -->
+    <path
+        android:pathData="M28,60 C38,56 47,52 60,60 C47,68 38,64 28,60 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="28"
+                android:startY="60"
+                android:endX="60"
+                android:endY="60"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFD166" />
+                <item android:offset="1.0" android:color="#F77F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- East -->
+    <path
+        android:pathData="M92,60 C82,56 73,52 60,60 C73,68 82,64 92,60 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="92"
+                android:startY="60"
+                android:endX="60"
+                android:endY="60"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFD166" />
+                <item android:offset="1.0" android:color="#F77F00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Diagonal Petals -->
+    <path android:pathData="M38,38 C47,40 52,48 60,60 C48,52 40,47 38,38 Z" android:fillColor="#FFB703" />
+    <path android:pathData="M82,38 C73,40 68,48 60,60 C72,52 80,47 82,38 Z" android:fillColor="#FFB703" />
+    <path android:pathData="M38,82 C47,80 52,72 60,60 C48,68 40,73 38,82 Z" android:fillColor="#FFB703" />
+    <path android:pathData="M82,82 C73,80 68,72 60,60 C72,68 80,73 82,82 Z" android:fillColor="#FFB703" />
+
+    <!-- Central Neural Quantum Chakra & Bindu Core -->
+    <path
+        android:pathData="M60,46 A14,14 0 1,0 60,74 A14,14 0 1,0 60,46"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="46"
+                android:startY="46"
+                android:endX="74"
+                android:endY="74"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#D62828" />
+                <item android:offset="0.5" android:color="#F77F00" />
+                <item android:offset="1.0" android:color="#003049" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Chakra Spoke Energy Lines -->
+    <path
+        android:pathData="M60,48 L60,72 M48,60 L72,60 M51,51 L69,69 M51,69 L69,51"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFF3B0" />
+
+    <!-- Golden Central Bindu Spark -->
+    <path
+        android:pathData="M60,56 L63,60 L60,64 L57,60 Z"
+        android:fillColor="#FFFFFF" />
+</vector>

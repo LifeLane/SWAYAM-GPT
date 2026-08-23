@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54">
+        
+        <!-- 1. Outer Surya Solar Aura Rings -->
+        <path
+            android:pathData="M54,24 A30,30 0 1,0 54,84 A30,30 0 1,0 54,24"
+            android:strokeWidth="1.5"
+            android:strokeColor="#FFB703"
+            android:fillColor="#00000000" />
+            
+        <path
+            android:pathData="M54,27 A27,27 0 1,0 54,81 A27,27 0 1,0 54,27"
+            android:strokeWidth="1.0"
+            android:strokeColor="#FB8500"
+            android:fillColor="#00000000" />
+
+        <!-- 2. Sacred Sun Radiance Rays (12 Cardinals & Diagonals) -->
+        <path
+            android:pathData="M54,21 L54,26 M54,82 L54,87 M21,54 L26,54 M82,54 L87,54"
+            android:strokeWidth="2.2"
+            android:strokeColor="#FFB703"
+            android:strokeLineCap="round" />
+            
+        <path
+            android:pathData="M31,31 L35,35 M73,35 L77,31 M31,77 L35,73 M73,73 L77,77"
+            android:strokeWidth="1.8"
+            android:strokeColor="#FB8500"
+            android:strokeLineCap="round" />
+            
+        <path
+            android:pathData="M42,23 L44,27 M66,23 L64,27 M42,85 L44,81 M66,85 L64,81"
+            android:strokeWidth="1.4"
+            android:strokeColor="#FFB703"
+            android:strokeLineCap="round" />
+
+        <!-- 3. Ancient Lotus (Padma) Petals - Sacred Geometry Base -->
+        <!-- North Petal -->
+        <path
+            android:pathData="M54,30 C51,37 47,43 54,54 C61,43 57,37 54,30 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="54"
+                    android:startY="30"
+                    android:endX="54"
+                    android:endY="54"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFD166" />
+                    <item android:offset="1.0" android:color="#F77F00" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <!-- South Petal -->
+        <path
+            android:pathData="M54,78 C51,71 47,65 54,54 C61,65 57,71 54,78 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="54"
+                    android:startY="78"
+                    android:endX="54"
+                    android:endY="54"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFD166" />
+                    <item android:offset="1.0" android:color="#F77F00" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <!-- West Petal -->
+        <path
+            android:pathData="M30,54 C37,51 43,47 54,54 C43,61 37,57 30,54 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="30"
+                    android:startY="54"
+                    android:endX="54"
+                    android:endY="54"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFD166" />
+                    <item android:offset="1.0" android:color="#F77F00" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <!-- East Petal -->
+        <path
+            android:pathData="M78,54 C71,51 65,47 54,54 C65,61 71,57 78,54 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="78"
+                    android:startY="54"
+                    android:endX="54"
+                    android:endY="54"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFD166" />
+                    <item android:offset="1.0" android:color="#F77F00" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        
+        <!-- Diagonal Petals -->
+        <path
+            android:pathData="M37,37 C44,38 48,44 54,54 C44,48 38,44 37,37 Z"
+            android:fillColor="#FFB703" />
+        <path
+            android:pathData="M71,37 C64,38 60,44 54,54 C64,48 70,44 71,37 Z"
+            android:fillColor="#FFB703" />
+        <path
+            android:pathData="M37,71 C44,70 48,64 54,54 C44,60 38,64 37,71 Z"
+            android:fillColor="#FFB703" />
+        <path
+            android:pathData="M71,71 C64,70 60,64 54,54 C64,60 70,64 71,71 Z"
+            android:fillColor="#FFB703" />
+
+        <!-- 4. Inner Quantum Chakra & Neural AI Core -->
+        <path
+            android:pathData="M54,42 A12,12 0 1,0 54,66 A12,12 0 1,0 54,42"
+            android:strokeWidth="1.5"
+            android:strokeColor="#FFFFFF">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="42"
+                    android:startY="42"
+                    android:endX="66"
+                    android:endY="66"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#D62828" />
+                    <item android:offset="0.5" android:color="#F77F00" />
+                    <item android:offset="1.0" android:color="#003049" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Neural Synapse Connections / Chakra Spokes -->
+        <path
+            android:pathData="M54,44 L54,64 M44,54 L64,54 M47,47 L61,61 M47,61 L61,47"
+            android:strokeWidth="1.2"
+            android:strokeColor="#FFF3B0" />
+
+        <!-- Central Spark (Bindu / Quantum Node) -->
+        <path
+            android:pathData="M54,51 L56,54 L54,57 L52,54 Z"
+            android:fillColor="#FFFFFF" />
+            
+        <!-- Golden Micro Beads on Lotus Tips -->
+        <path android:pathData="M54,27 A1.5,1.5 0 1,0 54,30 A1.5,1.5 0 1,0 54,27" android:fillColor="#FFF" />
+        <path android:pathData="M54,78 A1.5,1.5 0 1,0 54,81 A1.5,1.5 0 1,0 54,78" android:fillColor="#FFF" />
+        <path android:pathData="M27,54 A1.5,1.5 0 1,0 30,54 A1.5,1.5 0 1,0 27,54" android:fillColor="#FFF" />
+        <path android:pathData="M78,54 A1.5,1.5 0 1,0 81,54 A1.5,1.5 0 1,0 78,54" android:fillColor="#FFF" />
+    </group>
+</vector>
