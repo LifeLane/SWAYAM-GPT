@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SWAYAM-GPT | Sovereign Edge AI Assistant for Android</title>
+  <meta name="description" content="SWAYAM-GPT is a privacy-first, on-device Edge AI assistant for Android powered by LiteRT, MediaPipe vision, hardware-backed AES-256 encryption, Model Context Protocol (MCP), and Google Gemini fallback.">
+  <meta name="keywords" content="SWAYAM-GPT, Edge AI, Android AI, Local LLM, LiteRT, MediaPipe, Model Context Protocol, MCP Android, Private AI, Sovereign AI">
+  <meta name="author" content="SWAYAM-GPT Engineering">
+  <meta name="theme-color" content="#0a0e17">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="SWAYAM-GPT | Sovereign Edge AI Assistant for Android">
+  <meta property="og:description" content="On-device intelligence, hardware-encrypted memory vault, Model Context Protocol (MCP), and zero-telemetry privacy architecture on Android.">
+  <meta property="og:image" content="assets/images/favicon.svg">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="SWAYAM-GPT | Sovereign Edge AI Assistant">
+  <meta name="twitter:description" content="On-device intelligence, hardware-encrypted memory vault, MCP tooling, and privacy-first architecture on Android.">
+  <meta name="twitter:image" content="assets/images/favicon.svg">
+
+  <link rel="canonical" href="index.html">
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <!-- Site Navigation Header -->
+  <header class="site-header">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo" aria-label="SWAYAM-GPT Home">
+        <div class="brand-icon">S</div>
+        <span>SWAYAM-GPT</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main Navigation">
+        <a href="#capabilities" class="nav-link">Capabilities</a>
+        <a href="#architecture" class="nav-link">Architecture</a>
+        <a href="#mcp" class="nav-link">MCP Tools</a>
+        <a href="#privacy-arch" class="nav-link">Privacy Engine</a>
+        <a href="#roadmap" class="nav-link">Roadmap</a>
+        <a href="#contact" class="nav-link">Contact</a>
+        <a href="privacy.html" class="nav-link">Privacy Policy</a>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="btn-icon theme-toggle" aria-label="Toggle Dark/Light Theme">
+          <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <a href="#early-access" class="btn btn-primary btn-sm">Get Android APK</a>
+
+        <button class="btn-icon mobile-menu-toggle" aria-label="Open Mobile Menu" aria-expanded="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer Menu -->
+  <div class="mobile-nav">
+    <a href="#capabilities" class="mobile-nav-link">Capabilities</a>
+    <a href="#architecture" class="mobile-nav-link">Architecture</a>
+    <a href="#mcp" class="mobile-nav-link">MCP Tools</a>
+    <a href="#privacy-arch" class="mobile-nav-link">Privacy Engine</a>
+    <a href="#roadmap" class="mobile-nav-link">Roadmap</a>
+    <a href="#contact" class="mobile-nav-link">Contact</a>
+    <a href="privacy.html" class="mobile-nav-link">Privacy Policy</a>
+    <a href="terms.html" class="mobile-nav-link">Terms of Service</a>
+    <a href="#early-access" class="btn btn-primary" style="margin-top: 12px;">Get Android APK</a>
+  </div>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="container hero-grid">
+        <div class="hero-content">
+          <div class="badge badge-indigo">
+            <span class="pulse-dot"></span>
+            <span>EdgeAI Core • Android 14/15/16 Ready</span>
+          </div>
+
+          <h1 class="hero-title">
+            Sovereign Intelligence.<br>
+            <span class="hero-gradient-text">On-Device Edge AI.</span>
+          </h1>
+
+          <p class="hero-subtitle">
+            SWAYAM-GPT is a next-generation personal AI platform built natively for Android. Combining on-device LiteRT neural inference, hardware-backed AES-256 memory encryption, standard Model Context Protocol (MCP) tooling, and an auditable Privacy Engine.
+          </p>
+
+          <div class="hero-cta-group">
+            <a href="#early-access" class="btn btn-primary btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Download & Test Android Build</span>
+            </a>
+            <a href="privacy.html" class="btn btn-secondary btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <span>Verified Privacy Policy</span>
+            </a>
+          </div>
+
+          <div class="hero-metrics">
+            <div class="metric-item">
+              <h4>100%</h4>
+              <p>Hardware Vault Encrypted</p>
+            </div>
+            <div class="metric-item">
+              <h4>17+</h4>
+              <p>Sandboxed MCP Tools</p>
+            </div>
+            <div class="metric-item">
+              <h4>3-Tier</h4>
+              <p>Adaptive AI Routing</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Architecture Simulator Mockup -->
+        <div class="hero-mockup-card">
+          <div class="mockup-header">
+            <div class="mockup-status">
+              <span class="pulse-dot"></span>
+              <span id="demo-routing-status">On-Device Edge LiteRT</span>
+            </div>
+            <div class="mockup-badge-group">
+              <span class="mini-badge">Android 16 API 36</span>
+              <span class="mini-badge" id="demo-encryption-badge">Hardware AES-256-GCM</span>
+            </div>
+          </div>
+
+          <div class="mockup-flow">
+            <div class="mockup-step">
+              <div class="step-icon-wrap indigo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </div>
+              <div class="step-info">
+                <h5>User Query & Context Engine</h5>
+                <p>Retrieves encrypted personal memory & environment</p>
+              </div>
+              <span class="step-latency">0.4ms</span>
+            </div>
+
+            <div class="mockup-step">
+              <div class="step-icon-wrap emerald">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              </div>
+              <div class="step-info">
+                <h5>Privacy Engine Policy Gate</h5>
+                <p>Audits data classification & user consent rules</p>
+              </div>
+              <span class="step-latency">PASSED</span>
+            </div>
+
+            <div class="mockup-step">
+              <div class="step-icon-wrap cyan">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
+              </div>
+              <div class="step-info">
+                <h5 id="demo-provider-title">LiteRT-LM On-Device Model</h5>
+                <p id="demo-provider-desc">Zero network egress. Inferences computed strictly inside device neural runtime.</p>
+              </div>
+              <span class="step-latency" id="demo-latency-badge">~12ms Local</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-subtle);">
+            <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase;">Simulate Routing Policy:</p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm active" data-routing-mode="local" style="font-size: 0.76rem; padding: 6px 10px;">On-Device LiteRT</button>
+              <button class="btn btn-secondary btn-sm" data-routing-mode="server" style="font-size: 0.76rem; padding: 6px 10px;">Private Gateway</button>
+              <button class="btn btn-secondary btn-sm" data-routing-mode="cloud" style="font-size: 0.76rem; padding: 6px 10px;">Cloud Gemini</button>
+              <button class="btn btn-secondary btn-sm" data-routing-mode="offline" style="font-size: 0.76rem; padding: 6px 10px;">Offline Sandbox</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Product Introduction -->
+    <section class="section-spacing" style="background: var(--bg-secondary); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+      <div class="container text-center">
+        <p class="section-tag">Product Philosophy</p>
+        <h2 class="section-title">AI that belongs to you, not the cloud.</h2>
+        <p class="section-desc">
+          Most mobile assistants send your personal notes, calendar, photos, and thoughts directly to centralized servers for profit and training. SWAYAM-GPT fundamentally flips this paradigm: your memories and documents remain sovereign on your device, hardware-encrypted, and governed by user-controlled policy gates.
+        </p>
+      </div>
+    </section>
+
+    <!-- Core Capabilities -->
+    <section id="capabilities" class="section-spacing">
+      <div class="container">
+        <div class="text-center">
+          <p class="section-tag">Capabilities</p>
+          <h2 class="section-title">Engineered for Sovereign Edge Intelligence</h2>
+          <p class="section-desc">Six interconnected subsystems designed specifically for mobile edge computing.</p>
+        </div>
+
+        <div class="cards-grid">
+          <div class="feature-card">
+            <div class="feature-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <h3 class="feature-title">Hardware-Backed Memory Vault</h3>
+            <p class="feature-desc">
+              All personal memories, notes, and profile traits are encrypted at rest using 256-bit AES-GCM via the Android KeyStore Hardware TEE, preventing unauthorized device extraction.
+            </p>
+            <div class="feature-footer">
+              <span>Android KeyStore AES-GCM-256</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
+            </div>
+            <h3 class="feature-title">3-Tier Hybrid AI Routing</h3>
+            <p class="feature-desc">
+              Intelligently chooses between On-Device LiteRT (zero egress), Private LAN Server (vLLM cluster), and Google Gemini (Cloud Reasoning) based on user privacy levels and battery state.
+            </p>
+            <div class="feature-footer">
+              <span>AIRouter & Policy Engine</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            </div>
+            <h3 class="feature-title">Model Context Protocol (MCP)</h3>
+            <p class="feature-desc">
+              Full native implementation of the Anthropic MCP standard on Android. Exposes secure, sandboxed tools for memory queries, task management, and perception without shell vulnerabilities.
+            </p>
+            <div class="feature-footer">
+              <span>JSON-RPC 2.0 Protocol</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </div>
+            <h3 class="feature-title">Multimodal On-Device Vision</h3>
+            <p class="feature-desc">
+              Integrated CameraX pipeline with MediaPipe perception for real-time object recognition, document intelligence, and OCR transcription directly within mobile RAM.
+            </p>
+            <div class="feature-footer">
+              <span>CameraX & MediaPipe Edge</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            </div>
+            <h3 class="feature-title">Unified RAG Knowledge Engine</h3>
+            <p class="feature-desc">
+              Automatic text chunking, embedding generation, and fast semantic retrieval over your PDF documents, research notes, and transcripts using local Room DB indexing.
+            </p>
+            <div class="feature-footer">
+              <span>Local Vector Chunking</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <h3 class="feature-title">Auditable Privacy Audit Log</h3>
+            <p class="feature-desc">
+              Every inference, context retrieval, and tool invocation is logged to a local, tamper-evident audit record so you can verify exactly where every single byte went.
+            </p>
+            <div class="feature-footer">
+              <span>Local Audit Trail</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture Overview -->
+    <section id="architecture" class="section-spacing" style="background: var(--bg-secondary); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+      <div class="container">
+        <div class="text-center">
+          <p class="section-tag">System Architecture</p>
+          <h2 class="section-title">Modular EdgeAI Subsystems</h2>
+          <p class="section-desc">Strict architectural boundaries guarantee isolation between sensors, local storage, and optional cloud fallbacks.</p>
+        </div>
+
+        <div class="arch-diagram">
+          <div class="arch-layer">
+            <div class="layer-tag">
+              <span class="mini-badge" style="background:rgba(99,102,241,0.2); color:var(--accent-primary)">LAYER 1</span>
+              <span>UI & Interaction</span>
+            </div>
+            <div class="layer-details">
+              Jetpack Compose M3, Edge-to-Edge window insets, Audio Journal recorder, MediaPipe CameraX viewfinder, Rich markdown renderer.
+            </div>
+            <div class="layer-badge">Presentation</div>
+          </div>
+
+          <div class="arch-layer">
+            <div class="layer-tag">
+              <span class="mini-badge" style="background:rgba(16,185,129,0.2); color:var(--accent-emerald)">LAYER 2</span>
+              <span>Privacy & Policy Engine</span>
+            </div>
+            <div class="layer-details">
+              Enforces Offline-Only Mode, per-task privacy classification (LOCAL_ONLY, SENSITIVE, PRIVATE, PUBLIC), and writes audit records.
+            </div>
+            <div class="layer-badge">Security Gate</div>
+          </div>
+
+          <div class="arch-layer">
+            <div class="layer-tag">
+              <span class="mini-badge" style="background:rgba(6,182,212,0.2); color:var(--accent-cyan)">LAYER 3</span>
+              <span>AI Routing & MCP Tools</span>
+            </div>
+            <div class="layer-details">
+              Internal MCP Server (JSON-RPC), ToolGateway sandboxing, LiteRT on-device inference, Private Server Gateway, Gemini fallback.
+            </div>
+            <div class="layer-badge">Compute Runtime</div>
+          </div>
+
+          <div class="arch-layer">
+            <div class="layer-tag">
+              <span class="mini-badge" style="background:rgba(245,158,11,0.2); color:var(--accent-amber)">LAYER 4</span>
+              <span>Storage & Hardware Vault</span>
+            </div>
+            <div class="layer-details">
+              Room Database (25+ entities), AndroidKeyStore AES-256-GCM hardware cipher, local chunking index, media storage integrity validator.
+            </div>
+            <div class="layer-badge">Encrypted Persistence</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MCP / Tooling Section -->
+    <section id="mcp" class="section-spacing">
+      <div class="container">
+        <div class="text-center">
+          <p class="section-tag">Extensibility</p>
+          <h2 class="section-title">Model Context Protocol (MCP) on Android</h2>
+          <p class="section-desc">SWAYAM-GPT implements Anthropic's open MCP standard directly inside the Android runtime, allowing safe, structured tool execution.</p>
+        </div>
+
+        <div class="mcp-grid">
+          <div class="mcp-tool-pill">
+            <div>
+              <p class="tool-code">memory.search</p>
+              <p class="tool-desc">Semantic text search across hardware-encrypted local memory notes.</p>
+            </div>
+          </div>
+          <div class="mcp-tool-pill">
+            <div>
+              <p class="tool-code">knowledge.search</p>
+              <p class="tool-desc">Full-text and vector chunk lookup over ingested user documents.</p>
+            </div>
+          </div>
+          <div class="mcp-tool-pill">
+            <div>
+              <p class="tool-code">task.create</p>
+              <p class="tool-desc">Instantiates structured tasks and action items in Room DB.</p>
+            </div>
+          </div>
+          <div class="mcp-tool-pill">
+            <div>
+              <p class="tool-code">vision.detect</p>
+              <p class="tool-desc">Performs on-device MediaPipe perception and object classification.</p>
+            </div>
+          </div>
+          <div class="mcp-tool-pill">
+            <div>
+              <p class="tool-code">storage.getMetadata</p>
+              <p class="tool-desc">Validates SHA-256 integrity and file sizes in app-private storage.</p>
+            </div>
+          </div>
+          <div class="mcp-tool-pill">
+            <div>
+              <p class="tool-code">device.status</p>
+              <p class="tool-desc">Inspects available RAM, battery, thermal status, and NPU/GPU accelerators.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy Architecture & Guarantees -->
+    <section id="privacy-arch" class="section-spacing" style="background: var(--bg-secondary); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+      <div class="container">
+        <div class="text-center">
+          <p class="section-tag">Privacy & Data Governance</p>
+          <h2 class="section-title">No Ads. No User Tracking. No Data Brokerage.</h2>
+          <p class="section-desc">We believe in transparent, code-verified privacy. Here is what the application actually does with your data.</p>
+        </div>
+
+        <div class="cards-grid">
+          <div class="feature-card">
+            <h3 class="feature-title">Air-Gapped Offline-Only Mode</h3>
+            <p class="feature-desc">
+              Toggle one switch in Privacy Center to completely disable all network sockets. The PrivacyEngine will immediately reject any remote call, running 100% locally.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">Sanitized Local Telemetry</h3>
+            <p class="feature-desc">
+              Analytics in SWAYAM-GPT are stored strictly on-device in memory to render usage charts. All prompts, image pixels, and personal tokens are programmatically stripped.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <h3 class="feature-title">User-Controlled API Keys</h3>
+            <p class="feature-desc">
+              When using Cloud AI fallback, requests are made directly to Google Gemini using the developer API configuration or private gateway. Your conversations are never saved to secondary advertising databases.
+            </p>
+          </div>
+        </div>
+
+        <div class="text-center" style="margin-top: 36px;">
+          <a href="privacy.html" class="btn btn-secondary">Read Full Verified Privacy Policy</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Roadmap -->
+    <section id="roadmap" class="section-spacing">
+      <div class="container">
+        <div class="text-center">
+          <p class="section-tag">Product Evolution</p>
+          <h2 class="section-title">Roadmap & Vision</h2>
+          <p class="section-desc">Continuous innovation toward sovereign, decentralized personal intelligence.</p>
+        </div>
+
+        <div class="roadmap-grid">
+          <div class="roadmap-card active">
+            <span class="roadmap-status">Phase 1 • Current Release</span>
+            <h3 class="feature-title">Edge AI Core Foundation</h3>
+            <ul class="roadmap-items">
+              <li>✓ Android 16 (API 36) Compose UI</li>
+              <li>✓ Hardware AES-256-GCM Vault</li>
+              <li>✓ Internal MCP Server (17 tools)</li>
+              <li>✓ 3-Tier AI Router (LiteRT / Gemini)</li>
+              <li>✓ CameraX + MediaPipe Vision</li>
+            </ul>
+          </div>
+
+          <div class="roadmap-card">
+            <span class="roadmap-status" style="color: var(--accent-cyan);">Phase 2 • Upcoming</span>
+            <h3 class="feature-title">Expanded Ecosystem</h3>
+            <ul class="roadmap-items">
+              <li>○ Direct Ollama & vLLM LAN Auto-Discovery</li>
+              <li>○ Peer-to-Peer Encrypted Device Sync</li>
+              <li>○ Fine-tuned Indic multilingual voice models</li>
+              <li>○ Multi-modal audio streaming diarization</li>
+            </ul>
+          </div>
+
+          <div class="roadmap-card">
+            <span class="roadmap-status" style="color: var(--text-muted);">Phase 3 • Future</span>
+            <h3 class="feature-title">Autonomous Agents</h3>
+            <ul class="roadmap-items">
+              <li>○ Multi-agent collaborative workflows</li>
+              <li>○ Local LoRA adapter hot-swapping</li>
+              <li>○ Decentralized verifiable compute proofs</li>
+              <li>○ Smart home Matter/Thread MCP integrations</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Early Access & Download CTA -->
+    <section id="early-access" class="section-spacing">
+      <div class="container">
+        <div class="cta-banner">
+          <h2 class="section-title" style="margin-bottom: 16px;">Experience Sovereign AI on Android</h2>
+          <p class="section-desc" style="margin-bottom: 28px;">
+            Join the developer preview of SWAYAM-GPT. Build from source or download our automated GitHub Release artifacts.
+          </p>
+          <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+            <a href="https://github.com" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              <span>View GitHub Repository</span>
+            </a>
+            <a href="mailto:admin@eastindiaautomation.com" class="btn btn-secondary btn-lg">
+              <span>Request Early Access APK</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section-spacing" style="background: var(--bg-secondary); border-top: 1px solid var(--border-subtle);">
+      <div class="container">
+        <div class="text-center">
+          <p class="section-tag">Get in Touch</p>
+          <h2 class="section-title">Official Support & Privacy Inquiries</h2>
+          <p class="section-desc">Have questions regarding SWAYAM-GPT, privacy auditing, or enterprise deployment?</p>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-card">
+            <h3 class="feature-title">Official Support & Administration</h3>
+            <p class="feature-desc">For general support, testing feedback, and partnership opportunities:</p>
+            <a href="mailto:admin@eastindiaautomation.com" class="contact-email">admin@eastindiaautomation.com</a>
+            <button class="btn btn-secondary btn-sm" data-copy-text="admin@eastindiaautomation.com" style="margin-top: 8px; width: fit-content;">Copy Email Address</button>
+          </div>
+
+          <div class="contact-card">
+            <h3 class="feature-title">Privacy & Data Protection</h3>
+            <p class="feature-desc">For data inquiries, audit clarification, or legal requests:</p>
+            <a href="mailto:admin@eastindiaautomation.com" class="contact-email">admin@eastindiaautomation.com</a>
+            <a href="privacy.html" class="btn btn-secondary btn-sm" style="margin-top: 8px; width: fit-content;">View Privacy Policy</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="brand-logo">
+            <div class="brand-icon">S</div>
+            <span>SWAYAM-GPT</span>
+          </div>
+          <p>Sovereign Edge AI Assistant for Android. Hardware-backed encryption, on-device intelligence, and auditable privacy.</p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Architecture</h4>
+          <ul class="footer-links">
+            <li><a href="#capabilities">Core Capabilities</a></li>
+            <li><a href="#architecture">Subsystem Layers</a></li>
+            <li><a href="#mcp">Model Context Protocol</a></li>
+            <li><a href="#privacy-arch">Privacy Engine</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Legal & Contact</h4>
+          <ul class="footer-links">
+            <li><a href="privacy.html">Privacy Policy</a></li>
+            <li><a href="terms.html">Terms of Service</a></li>
+            <li><a href="mailto:admin@eastindiaautomation.com">admin@eastindiaautomation.com</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 SWAYAM-GPT / [LEGAL ENTITY NAME]. All rights reserved.</p>
+        <p>Package ID: <code style="font-family: var(--font-mono); color: var(--text-accent);">com.mitsara.swayam</code></p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
