@@ -118,7 +118,7 @@ class MemoryEngine(
             context.applicationContext,
             EdgeMemoryDatabase::class.java,
             "edge_ai_memories.db"
-        ).fallbackToDestructiveMigration().build()
+        ).fallbackToDestructiveMigration(dropAllTables = true).build()
     }
 
     val memoryDao: MemoryDao by lazy { database.memoryDao() }
