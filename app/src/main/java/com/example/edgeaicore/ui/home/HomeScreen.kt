@@ -49,6 +49,7 @@ fun HomeScreen(
     onNavigateToBenchmark: () -> Unit = {},
     onNavigateToAudioJournal: () -> Unit = {},
     onNavigateToRoutines: () -> Unit = {},
+    onOpenOperatingCenter: () -> Unit = {},
     onShowExplanation: (ExplanationRecord) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -86,19 +87,35 @@ fun HomeScreen(
                     subtitle = "Personal On-Device Sovereign AI Core"
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = greeting,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.5.sp
-                )
-                Text(
-                    text = "Personal AI Operating Center",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = greeting,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 1.5.sp
+                        )
+                        Text(
+                            text = "Personal AI Operating Center",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenOperatingCenter,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), CircleShape)
+                            .testTag("home_open_engine_btn")
+                    ) {
+                        Icon(imageVector = Icons.Default.Tune, contentDescription = "Engine Control", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
 
@@ -109,20 +126,7 @@ fun HomeScreen(
                 isOffline = !privacyState.cloudAiEnabled && !privacyState.privateServerEnabled,
                 isDemo = isDemoMode,
                 hardwareAccelerator = "${specs.recommendedBackend.name} ACCELERATED",
-                onClick = {
-                    onShowExplanation(
-                        ExplanationRecord(
-                            featureName = "AI Operating Status",
-                            whatHappened = "Edge AI Core is operating on-device with zero data egress.",
-                            whyReason = "Local neural model (LiteRT-LM) and MediaPipe vision are loaded in RAM.",
-                            confidenceScore = 0.99f,
-                            dataSourcesUsed = listOf("Device NPU/GPU", "Encrypted SQLite Vault"),
-                            wasAiInvolved = true,
-                            providerType = if (isDemoMode) AIProviderType.DEMO else AIProviderType.LOCAL,
-                            privacyLevel = com.example.edgeaicore.core.common.PrivacyLevel.LOCAL_ONLY
-                        )
-                    )
-                }
+                onClick = onOpenOperatingCenter
             )
         }
 

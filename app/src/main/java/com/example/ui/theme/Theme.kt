@@ -15,11 +15,69 @@ import androidx.compose.ui.platform.LocalContext
 enum class AppThemeMode(val title: String, val description: String) {
     LIGHT("Google Light", "Default clean, high-contrast Material 3 canvas"),
     GOOGLY_DARK("Googly Dark", "Authentic Google dark theme (#1F1F1F, #28292A, #8AB4F8)"),
+    MONOCHROME_RESEARCH("Monochrome Light", "High-contrast black & white paper canvas for focused researchers"),
+    MONOCHROME_DARK("Monochrome Noir", "Ultra-pure dark noir monochrome interface with zero color distraction"),
     SYSTEM("System Default", "Follows system-wide display preference")
 }
 
 val LocalThemeMode = compositionLocalOf { AppThemeMode.LIGHT }
 val LocalThemeUpdater = compositionLocalOf<(AppThemeMode) -> Unit> { {} }
+
+// Monochrome Research Light Color Scheme (Paper Minimalist B&W)
+val MonochromeLightColorScheme: ColorScheme = lightColorScheme(
+    primary = MonoBlack,
+    onPrimary = MonoPureWhite,
+    primaryContainer = MonoPaperVariant,
+    onPrimaryContainer = MonoBlack,
+    secondary = MonoTextSecondary,
+    onSecondary = MonoPureWhite,
+    secondaryContainer = MonoPaperVariant,
+    onSecondaryContainer = MonoTextPrimary,
+    tertiary = MonoTextSecondary,
+    onTertiary = MonoPureWhite,
+    tertiaryContainer = MonoPaperVariant,
+    onTertiaryContainer = MonoBlack,
+    background = MonoPureWhite,
+    onBackground = MonoTextPrimary,
+    surface = MonoPureWhite,
+    onSurface = MonoTextPrimary,
+    surfaceVariant = MonoPaperVariant,
+    onSurfaceVariant = MonoTextSecondary,
+    outline = MonoSlateBorder,
+    outlineVariant = MonoLightBorder,
+    error = Color(0xFF222222),
+    onError = MonoPureWhite,
+    errorContainer = MonoPaperVariant,
+    onErrorContainer = MonoBlack
+)
+
+// Monochrome Research Dark Color Scheme (Noir Pure B&W)
+val MonochromeDarkColorScheme: ColorScheme = darkColorScheme(
+    primary = MonoPureWhite,
+    onPrimary = MonoBlack,
+    primaryContainer = MonoDarkCard,
+    onPrimaryContainer = MonoPureWhite,
+    secondary = MonoTextInvertedSecondary,
+    onSecondary = MonoBlack,
+    secondaryContainer = MonoDarkCard,
+    onSecondaryContainer = MonoTextInvertedPrimary,
+    tertiary = MonoTextInvertedSecondary,
+    onTertiary = MonoBlack,
+    tertiaryContainer = MonoDarkCard,
+    onTertiaryContainer = MonoPureWhite,
+    background = MonoBlack,
+    onBackground = MonoTextInvertedPrimary,
+    surface = MonoOffBlack,
+    onSurface = MonoTextInvertedPrimary,
+    surfaceVariant = MonoDarkCard,
+    onSurfaceVariant = MonoTextInvertedSecondary,
+    outline = MonoSlateBorder,
+    outlineVariant = MonoCharcoalBorder,
+    error = MonoPureWhite,
+    onError = MonoBlack,
+    errorContainer = MonoDarkCard,
+    onErrorContainer = MonoPureWhite
+)
 
 // Google Signature Light Color Scheme (Default)
 val GoogleLightColorScheme: ColorScheme = lightColorScheme(
@@ -88,16 +146,24 @@ fun EdgeAITheme(
     val isDark = when (themeMode) {
         AppThemeMode.LIGHT -> false
         AppThemeMode.GOOGLY_DARK -> true
+        AppThemeMode.MONOCHROME_RESEARCH -> false
+        AppThemeMode.MONOCHROME_DARK -> true
         AppThemeMode.SYSTEM -> systemDark
     }
 
     val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colorScheme = when (themeMode) {
+        AppThemeMode.MONOCHROME_RESEARCH -> MonochromeLightColorScheme
+        AppThemeMode.MONOCHROME_DARK -> MonochromeDarkColorScheme
+        AppThemeMode.GOOGLY_DARK -> GoogleDarkColorScheme
+        AppThemeMode.LIGHT -> GoogleLightColorScheme
+        AppThemeMode.SYSTEM -> {
+            if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                if (isDark) GoogleDarkColorScheme else GoogleLightColorScheme
+            }
         }
-        isDark -> GoogleDarkColorScheme
-        else -> GoogleLightColorScheme
     }
 
     CompositionLocalProvider(

@@ -5,8 +5,11 @@ import androidx.room.Room
 import com.example.edgeaicore.core.common.PrivacyLevel
 import com.example.edgeaicore.core.embeddings.EmbeddingEngine
 import com.example.edgeaicore.core.embeddings.VectorMath
+import com.example.edgeaicore.core.storage.EncryptionVaultStatus
+import com.example.edgeaicore.core.storage.LocalEncryptionEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 data class RankedMemory(
@@ -16,7 +19,8 @@ data class RankedMemory(
 
 class MemoryRetriever(
     private val memoryDao: MemoryDao,
-    private val embeddingEngine: EmbeddingEngine
+    private val embeddingEngine: EmbeddingEngine,
+    private val encryptionEngine: LocalEncryptionEngine? = null
 ) {
     suspend fun retrieveMemories(
         query: String,
@@ -25,8 +29,19 @@ class MemoryRetriever(
         typeFilter: MemoryType? = null,
         maxPrivacyLevel: PrivacyLevel = PrivacyLevel.LOCAL_ONLY
     ): List<RankedMemory> = withContext(Dispatchers.Default) {
-        val allMemories = memoryDao.getAllActiveMemoriesSync()
-        if (allMemories.isEmpty()) return@withContext emptyList()
+        val rawMemories = memoryDao.getAllActiveMemoriesSync()
+        if (rawMemories.isEmpty()) return@withContext emptyList()
+
+        val allMemories = rawMemories.map { memory ->
+            if (encryptionEngine != null) {
+                memory.copy(
+                    title = encryptionEngine.decryptString(memory.title),
+                    summary = encryptionEngine.decryptString(memory.summary),
+                    content = encryptionEngine.decryptString(memory.content),
+                    tags = encryptionEngine.decryptString(memory.tags)
+                )
+            } else memory
+        }
 
         val queryEmbedding = embeddingEngine.getEmbedding(query)
         val queryLower = query.lowercase().trim()
@@ -91,11 +106,12 @@ class MemoryContextBuilder(
 }
 
 /**
- * High-level MemoryEngine exposing CRUD, indexing, and vector search operations.
+ * High-level MemoryEngine exposing CRUD, indexing, vector search, and hardware AES-256-GCM encryption at rest.
  */
 class MemoryEngine(
     private val context: Context,
-    private val embeddingEngine: EmbeddingEngine
+    private val embeddingEngine: EmbeddingEngine,
+    val encryptionEngine: LocalEncryptionEngine = LocalEncryptionEngine(context)
 ) {
     private val database: EdgeMemoryDatabase by lazy {
         Room.databaseBuilder(
@@ -106,16 +122,36 @@ class MemoryEngine(
     }
 
     val memoryDao: MemoryDao by lazy { database.memoryDao() }
-    val retriever: MemoryRetriever by lazy { MemoryRetriever(memoryDao, embeddingEngine) }
+    val retriever: MemoryRetriever by lazy { MemoryRetriever(memoryDao, embeddingEngine, encryptionEngine) }
     val contextBuilder: MemoryContextBuilder by lazy { MemoryContextBuilder(retriever) }
 
-    fun getAllActiveMemories(): Flow<List<MemoryEntity>> = memoryDao.getAllActiveMemories()
+    fun getAllActiveMemories(): Flow<List<MemoryEntity>> = memoryDao.getAllActiveMemories().map { list ->
+        list.map { decryptMemory(it) }
+    }
 
-    fun searchMemories(query: String): Flow<List<MemoryEntity>> = memoryDao.searchMemories(query)
+    fun searchMemories(query: String): Flow<List<MemoryEntity>> = memoryDao.getAllActiveMemories().map { list ->
+        val q = query.lowercase().trim()
+        list.map { decryptMemory(it) }.filter {
+            q.isBlank() || it.title.contains(q, true) || it.content.contains(q, true) || it.tags.contains(q, true)
+        }
+    }
 
-    fun getFavoriteMemories(): Flow<List<MemoryEntity>> = memoryDao.getFavoriteMemories()
+    fun getFavoriteMemories(): Flow<List<MemoryEntity>> = memoryDao.getFavoriteMemories().map { list ->
+        list.map { decryptMemory(it) }
+    }
 
     fun getMemoryCount(): Flow<Int> = memoryDao.getCount()
+
+    fun getVaultStatus(): EncryptionVaultStatus = encryptionEngine.runCryptographicSelfTest()
+
+    private fun decryptMemory(memory: MemoryEntity): MemoryEntity {
+        return memory.copy(
+            title = encryptionEngine.decryptString(memory.title),
+            summary = encryptionEngine.decryptString(memory.summary),
+            content = encryptionEngine.decryptString(memory.content),
+            tags = encryptionEngine.decryptString(memory.tags)
+        )
+    }
 
     suspend fun createMemory(
         title: String,
@@ -129,7 +165,29 @@ class MemoryEngine(
         val vector = embeddingEngine.getEmbedding("$title $content $tags")
         val serializedVector = VectorMath.serializeVector(vector)
 
+        // Encrypt fields at rest with hardware AES-256-GCM
+        val encTitle = encryptionEngine.encryptString(title)
+        val encSummary = encryptionEngine.encryptString(summary)
+        val encContent = encryptionEngine.encryptString(content)
+        val encTags = encryptionEngine.encryptString(tags)
+
         val memory = MemoryEntity(
+            title = encTitle,
+            summary = encSummary,
+            content = encContent,
+            type = type,
+            tags = encTags,
+            privacyLevel = privacyLevel,
+            location = location,
+            embeddingReference = serializedVector,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
+        )
+        val id = memoryDao.insertMemory(memory)
+        
+        // Return decrypted version for UI state
+        MemoryEntity(
+            id = id,
             title = title,
             summary = summary,
             content = content,
@@ -138,16 +196,23 @@ class MemoryEngine(
             privacyLevel = privacyLevel,
             location = location,
             embeddingReference = serializedVector,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
+            createdAt = memory.createdAt,
+            updatedAt = memory.updatedAt
         )
-        val id = memoryDao.insertMemory(memory)
-        memory.copy(id = id)
     }
 
     suspend fun updateMemory(memory: MemoryEntity) = withContext(Dispatchers.IO) {
         val vector = embeddingEngine.getEmbedding("${memory.title} ${memory.content} ${memory.tags}")
+        val encTitle = encryptionEngine.encryptString(memory.title)
+        val encSummary = encryptionEngine.encryptString(memory.summary)
+        val encContent = encryptionEngine.encryptString(memory.content)
+        val encTags = encryptionEngine.encryptString(memory.tags)
+
         val updated = memory.copy(
+            title = encTitle,
+            summary = encSummary,
+            content = encContent,
+            tags = encTags,
             embeddingReference = VectorMath.serializeVector(vector),
             updatedAt = System.currentTimeMillis()
         )
@@ -170,3 +235,4 @@ class MemoryEngine(
         memoryDao.deleteAllMemories()
     }
 }
+

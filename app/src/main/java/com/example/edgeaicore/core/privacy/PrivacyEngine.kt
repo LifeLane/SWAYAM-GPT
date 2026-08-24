@@ -27,6 +27,7 @@ data class PrivacyAuditRecord(
 )
 
 data class PrivacyDashboardState(
+    val offlineOnlyMode: Boolean = false,
     val localAiEnabled: Boolean = true,
     val privateServerEnabled: Boolean = false,
     val cloudAiEnabled: Boolean = false,
@@ -52,11 +53,16 @@ class PrivacyEngine(private val context: Context) {
     val auditLogs: StateFlow<List<PrivacyAuditRecord>> = _auditLogs.asStateFlow()
 
     // Privacy Keys
+    private val KEY_OFFLINE_ONLY_ENFORCED = booleanPreferencesKey("offline_only_enforced")
     private val KEY_PRIVATE_SERVER_OPT_IN = booleanPreferencesKey("private_server_opt_in")
     private val KEY_CLOUD_AI_OPT_IN = booleanPreferencesKey("cloud_ai_opt_in")
     private val KEY_DATA_SHARING_OPT_IN = booleanPreferencesKey("data_sharing_opt_in")
     private val KEY_REMOTE_SYNC_OPT_IN = booleanPreferencesKey("remote_sync_opt_in")
     private val KEY_LOCAL_VAULT_LOCK = booleanPreferencesKey("local_vault_lock")
+
+    val isOfflineOnlyEnforced: Flow<Boolean> = context.privacyDataStore.data.map { prefs ->
+        prefs[KEY_OFFLINE_ONLY_ENFORCED] ?: false
+    }
 
     val isCloudAiAllowed: Flow<Boolean> = context.privacyDataStore.data.map { prefs ->
         prefs[KEY_CLOUD_AI_OPT_IN] ?: false
@@ -74,12 +80,33 @@ class PrivacyEngine(private val context: Context) {
         prefs[KEY_REMOTE_SYNC_OPT_IN] ?: false
     }
 
+    suspend fun setOfflineOnlyMode(enabled: Boolean) {
+        context.privacyDataStore.edit {
+            it[KEY_OFFLINE_ONLY_ENFORCED] = enabled
+            if (enabled) {
+                it[KEY_CLOUD_AI_OPT_IN] = false
+                it[KEY_PRIVATE_SERVER_OPT_IN] = false
+                it[KEY_DATA_SHARING_OPT_IN] = false
+                it[KEY_REMOTE_SYNC_OPT_IN] = false
+            }
+        }
+        _dashboardState.value = _dashboardState.value.copy(
+            offlineOnlyMode = enabled,
+            cloudAiEnabled = if (enabled) false else _dashboardState.value.cloudAiEnabled,
+            privateServerEnabled = if (enabled) false else _dashboardState.value.privateServerEnabled,
+            dataSharingEnabled = if (enabled) false else _dashboardState.value.dataSharingEnabled,
+            remoteSyncEnabled = if (enabled) false else _dashboardState.value.remoteSyncEnabled
+        )
+    }
+
     suspend fun setCloudAiAllowed(allowed: Boolean) {
+        if (_dashboardState.value.offlineOnlyMode && allowed) return
         context.privacyDataStore.edit { it[KEY_CLOUD_AI_OPT_IN] = allowed }
         _dashboardState.value = _dashboardState.value.copy(cloudAiEnabled = allowed)
     }
 
     suspend fun setPrivateServerAllowed(allowed: Boolean) {
+        if (_dashboardState.value.offlineOnlyMode && allowed) return
         context.privacyDataStore.edit { it[KEY_PRIVATE_SERVER_OPT_IN] = allowed }
         _dashboardState.value = _dashboardState.value.copy(privateServerEnabled = allowed)
     }
@@ -108,6 +135,20 @@ class PrivacyEngine(private val context: Context) {
         targetProvider: AIProviderType,
         userConsentGiven: Boolean
     ): Boolean {
+        // If offline-only mode is active, strictly reject remote network calls
+        if (_dashboardState.value.offlineOnlyMode && (targetProvider == AIProviderType.CLOUD || targetProvider == AIProviderType.PRIVATE_SERVER)) {
+            val record = PrivacyAuditRecord(
+                taskType = "OFFLINE_ONLY_BLOCKED",
+                declaredPrivacyLevel = privacyLevel,
+                targetProvider = targetProvider,
+                wasTransmittedRemotely = false,
+                dataSummary = "Blocked remote transmission because Secure Offline-Only Mode is active.",
+                passedVerification = false
+            )
+            _auditLogs.value = listOf(record) + _auditLogs.value.take(49)
+            return false
+        }
+
         val isValid = when (privacyLevel) {
             PrivacyLevel.LOCAL_ONLY -> targetProvider == AIProviderType.LOCAL || targetProvider == AIProviderType.DEMO
             PrivacyLevel.SENSITIVE -> (targetProvider == AIProviderType.LOCAL || targetProvider == AIProviderType.DEMO) ||
@@ -115,7 +156,7 @@ class PrivacyEngine(private val context: Context) {
             PrivacyLevel.PRIVATE -> targetProvider == AIProviderType.LOCAL ||
                     (targetProvider == AIProviderType.PRIVATE_SERVER && _dashboardState.value.privateServerEnabled) ||
                     targetProvider == AIProviderType.DEMO
-            PrivacyLevel.PUBLIC -> true
+            PrivacyLevel.PUBLIC -> if (_dashboardState.value.offlineOnlyMode) (targetProvider == AIProviderType.LOCAL || targetProvider == AIProviderType.DEMO) else true
         }
 
         val record = PrivacyAuditRecord(

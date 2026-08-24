@@ -8,7 +8,9 @@ import com.example.edgeaicore.core.agent.AgentExecutionResult
 import com.example.edgeaicore.core.agent.AgentProfile
 import com.example.edgeaicore.core.agent.AgentProfileRegistry
 import com.example.edgeaicore.core.agent.AgentRuntime
+import com.example.edgeaicore.core.agent.AgentScheduler
 import com.example.edgeaicore.core.agent.CapabilityRegistry
+import com.example.edgeaicore.core.storage.LocalEncryptionEngine
 import com.example.edgeaicore.core.ai.*
 import com.example.edgeaicore.core.analytics.LocalAnalyticsProvider
 import com.example.edgeaicore.core.automation.AutomationEngine
@@ -156,6 +158,9 @@ class EdgeAICore private constructor(val context: Context) {
     internal val capabilityRegistry = CapabilityRegistry(toolRegistry, mcpClient, policyEngine)
     internal val profileRegistry = AgentProfileRegistry()
 
+    internal val encryptionEngine = LocalEncryptionEngine(context)
+    internal val agentScheduler = AgentScheduler(context, profileRegistry)
+
     internal val agentRuntime = AgentRuntime(
         context = context,
         contextEngine = contextEngine,
@@ -188,7 +193,22 @@ class EdgeAICore private constructor(val context: Context) {
         performanceMonitor = perfMonitor
     )
 
+    internal val personaManager = com.example.edgeaicore.core.swayam.SwayamPersonaManager(context)
+    val explanation = ExplanationEngine()
+
+    internal val swayamCore = com.example.edgeaicore.core.swayam.SwayamCore(
+        context = context,
+        aiRouter = aiRouter,
+        memoryEngine = memoryEngine,
+        knowledgeSearchEngine = knowledgeSearchEngine,
+        toolGateway = toolGateway,
+        agentRuntime = agentRuntime,
+        explanationEngine = explanation,
+        personaManager = personaManager
+    )
+
     // Subsystems
+    val swayam = SwayamSubsystem()
     val diagnostics = DiagnosticsSubsystem()
     val models = ModelsSubsystem()
     val vision = VisionSubsystem()
@@ -214,7 +234,6 @@ class EdgeAICore private constructor(val context: Context) {
     val preferences = PreferenceEngine(context)
     val notifications = LocalNotificationProvider(context)
     val analytics = LocalAnalyticsProvider()
-    val explanation = ExplanationEngine()
     val demo = DemoEngine()
 
     init {
@@ -363,6 +382,8 @@ class EdgeAICore private constructor(val context: Context) {
         fun metrics(): DiagnosticsMetrics = perfMonitor.metrics.value
         fun specs() = deviceCapManager.getDeviceSpecs()
         fun flow() = perfMonitor.metrics
+        fun telemetry() = perfMonitor.getLiveHardwareTelemetry()
+        fun telemetryFlow() = perfMonitor.hardwareTelemetry
     }
 
     inner class ModelsSubsystem {
@@ -388,6 +409,9 @@ class EdgeAICore private constructor(val context: Context) {
     inner class MemorySubsystem {
         val activeMemories = memoryEngine.getAllActiveMemories()
         val count = memoryEngine.getMemoryCount()
+        val encryption: com.example.edgeaicore.core.storage.LocalEncryptionEngine get() = encryptionEngine
+        fun getVaultStatus() = memoryEngine.getVaultStatus()
+
         suspend fun create(
             title: String,
             content: String,
@@ -407,6 +431,30 @@ class EdgeAICore private constructor(val context: Context) {
         suspend fun buildContext(query: String) =
             memoryEngine.contextBuilder.buildMemoryContext(query)
         suspend fun clear() = memoryEngine.clearAllMemories()
+    }
+
+    inner class SwayamSubsystem {
+        val core: com.example.edgeaicore.core.swayam.SwayamCore get() = swayamCore
+        val personaManager: com.example.edgeaicore.core.swayam.SwayamPersonaManager get() = this@EdgeAICore.personaManager
+        val persona: com.example.edgeaicore.core.swayam.SwayamPersona get() = swayamCore.persona
+        val personaState get() = personaManager.persona
+        val translator: com.example.edgeaicore.core.swayam.SwayamTranslator get() = swayamCore.translator
+
+        fun setResponseStyle(style: com.example.edgeaicore.core.swayam.ResponseStyle) {
+            personaManager.updateResponseStyle(style)
+        }
+
+        suspend fun process(request: com.example.edgeaicore.core.swayam.SwayamRequest): EdgeResult<com.example.edgeaicore.core.swayam.SwayamResponse> =
+            swayamCore.process(request)
+
+        suspend fun process(prompt: String): EdgeResult<com.example.edgeaicore.core.swayam.SwayamResponse> =
+            swayamCore.process(com.example.edgeaicore.core.swayam.SwayamRequest(prompt = prompt))
+
+        fun stream(request: com.example.edgeaicore.core.swayam.SwayamRequest) =
+            swayamCore.stream(request)
+
+        suspend fun translate(text: String, targetLanguage: String) =
+            swayamCore.translator.translate(text, targetLanguage)
     }
 
     inner class AISubsystem {
@@ -431,6 +479,18 @@ class EdgeAICore private constructor(val context: Context) {
         val isExecuting: StateFlow<Boolean> = agentRuntime.isExecuting
         val currentStateStep = agentRuntime.currentStateStep
         val confirmationManager: ConfirmationManager get() = this@EdgeAICore.confirmationManager
+        val runtime: AgentRuntime get() = agentRuntime
+
+        // Automated Recurring Task Scheduler
+        val scheduler: com.example.edgeaicore.core.agent.AgentScheduler get() = agentScheduler
+        val scheduledTriggers get() = agentScheduler.triggers
+        val executionLogs get() = agentScheduler.executionLogs
+
+        suspend fun scheduleTrigger(trigger: com.example.edgeaicore.core.agent.AgentScheduleTrigger) =
+            agentScheduler.addTrigger(trigger)
+
+        suspend fun runTriggerNow(triggerId: String) =
+            agentScheduler.runTriggerNow(triggerId, agentRuntime)
 
         suspend fun run(
             request: String,
@@ -533,6 +593,7 @@ class EdgeAICore private constructor(val context: Context) {
             val target = aiRouter.determineTargetProvider(request)
             return privacyEngine.validateRouting(request.privacyLevel, target, request.userConsent)
         }
+        suspend fun setOfflineOnlyMode(enabled: Boolean) = privacyEngine.setOfflineOnlyMode(enabled)
         suspend fun setCloudAllowed(allowed: Boolean) = privacyEngine.setCloudAiAllowed(allowed)
         suspend fun setPrivateServerAllowed(allowed: Boolean) = privacyEngine.setPrivateServerAllowed(allowed)
         suspend fun setDataSharingAllowed(allowed: Boolean) = privacyEngine.setDataSharingAllowed(allowed)

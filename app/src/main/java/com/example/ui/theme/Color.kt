@@ -136,5 +136,20 @@ val SlateCardBorderDark = GoogleDarkOutline
 val SlateTextPrimaryDark = GoogleDarkTextPrimary
 val SlateTextSecondaryDark = GoogleDarkTextSecondary
 
-
-
+// ==============================================================================
+// MONOCHROME RESEARCH (BLACK & WHITE HIGH-CONTRAST FOR RESEARCHERS)
+// ==============================================================================
+val MonoBlack = Color(0xFF000000)
+val MonoOffBlack = Color(0xFF121212)
+val MonoDarkCard = Color(0xFF1C1C1C)
+val MonoCharcoalBorder = Color(0xFF333333)
+val MonoSlateBorder = Color(0xFF555555)
+val MonoLightBorder = Color(0xFFD0D0D0)
+val MonoPureWhite = Color(0xFFFFFFFF)
+val MonoOffWhite = Color(0xFFF7F7F7)
+val MonoLightCard = Color(0xFFFFFFFF)
+val MonoPaperVariant = Color(0xFFEDEDED)
+val MonoTextPrimary = Color(0xFF111111)
+val MonoTextSecondary = Color(0xFF555555)
+val MonoTextInvertedPrimary = Color(0xFFEEEEEE)
+val MonoTextInvertedSecondary = Color(0xFFAAAAAA)

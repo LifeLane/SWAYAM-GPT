@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -50,7 +51,7 @@ fun PrivacyCenterScreen(
                 title = { Text("Privacy & Safety Center", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("privacy_back_btn")) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -114,11 +115,15 @@ fun PrivacyCenterScreen(
             // 2. GRANULAR PRIVACY TOGGLES
             item {
                 PrivacyTogglesSection(
+                    offlineOnlyMode = privacyState.offlineOnlyMode,
                     dataSharingEnabled = privacyState.dataSharingEnabled,
                     cloudAiEnabled = privacyState.cloudAiEnabled,
                     remoteSyncEnabled = privacyState.remoteSyncEnabled,
                     localVaultLocked = privacyState.localVaultLocked,
                     privateServerEnabled = privacyState.privateServerEnabled,
+                    onToggleOfflineOnly = { offline ->
+                        coroutineScope.launch { edgeAI.privacy.setOfflineOnlyMode(offline) }
+                    },
                     onToggleDataSharing = { allowed ->
                         coroutineScope.launch { edgeAI.privacy.setDataSharingAllowed(allowed) }
                     },
@@ -315,11 +320,13 @@ fun PrivacyCenterScreen(
  */
 @Composable
 fun PrivacyTogglesSection(
+    offlineOnlyMode: Boolean,
     dataSharingEnabled: Boolean,
     cloudAiEnabled: Boolean,
     remoteSyncEnabled: Boolean,
     localVaultLocked: Boolean,
     privateServerEnabled: Boolean,
+    onToggleOfflineOnly: (Boolean) -> Unit,
     onToggleDataSharing: (Boolean) -> Unit,
     onToggleCloudAi: (Boolean) -> Unit,
     onToggleRemoteSync: (Boolean) -> Unit,
@@ -340,6 +347,19 @@ fun PrivacyTogglesSection(
                 letterSpacing = 1.sp
             )
 
+            // 0. Secure Offline-Only Mode
+            PrivacyToggleRow(
+                icon = Icons.Default.Shield,
+                iconTint = if (offlineOnlyMode) LocalAIGreen else MaterialTheme.colorScheme.primary,
+                title = "Secure 'Offline-Only' Mode",
+                subtitle = "Strictly disables all cloud API requests and private gateway routing, enforcing 100% on-device LLM computation for peak data privacy.",
+                isChecked = offlineOnlyMode,
+                onCheckedChange = onToggleOfflineOnly,
+                testTag = "switch_offline_only_mode"
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
             // 1. Air-Gapped Quarantine Lock
             PrivacyToggleRow(
                 icon = Icons.Default.Lock,
@@ -351,7 +371,7 @@ fun PrivacyTogglesSection(
                 testTag = "switch_vault_quarantine"
             )
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // 2. Data Sharing & Telemetry Toggle
             PrivacyToggleRow(
@@ -364,7 +384,7 @@ fun PrivacyTogglesSection(
                 testTag = "switch_data_sharing"
             )
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // 3. Cloud AI Offloading Toggle
             PrivacyToggleRow(
@@ -377,7 +397,7 @@ fun PrivacyTogglesSection(
                 testTag = "switch_cloud_ai"
             )
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // 4. Remote Syncing Toggle
             PrivacyToggleRow(
@@ -390,7 +410,7 @@ fun PrivacyTogglesSection(
                 testTag = "switch_remote_sync"
             )
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // 5. Private Home Server AI Toggle
             PrivacyToggleRow(

@@ -29,22 +29,25 @@ import com.example.edgeaicore.core.ai.AIRequest
 import com.example.edgeaicore.core.common.EdgeResult
 import com.example.edgeaicore.core.common.PrivacyLevel
 import com.example.edgeaicore.core.database.AgentLogEntity
+import com.example.edgeaicore.core.diagnostics.HardwareTelemetry
 import com.example.edgeaicore.core.preferences.EdgeUserSettings
 import com.example.edgeaicore.core.ui.EdgeCard
+import com.example.edgeaicore.ui.common.ToolUsageFrequencyChart
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 
 enum class EngineModalTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    STATUS("Status & Metrics", Icons.Default.Speed),
+    STATUS("Telemetry & Status", Icons.Default.Speed),
+    ANALYTICS("Tool Analytics", Icons.Default.BarChart),
     CONTROL_PANEL("AI Parameters", Icons.Default.Tune),
     SKILLS_ACTIONS("Skills & Actions", Icons.Default.Extension),
     PLAYGROUND("Live Test Bench", Icons.Default.PlayCircle)
 }
 
 /**
- * Developer & Power-User AI ENGINE Inspector & Technical Control Center.
- * Comprehensive diagnostics, controllable hyperparameters, prompt playground,
- * system prompt controls, skill toggles, and real-time execution logs.
+ * Developer & Power-User AI ENGINE Operating Centre & Technical Control Center.
+ * Comprehensive hardware telemetry (CPU, RAM, Thermal), tool analytics chart, controllable hyperparameters,
+ * prompt playground, system prompt controls, skill toggles, and real-time execution logs.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +60,7 @@ fun AiEngineModal(
 
     val privacyState by edgeAI.privacy.state.collectAsStateWithLifecycle()
     val metrics by edgeAI.diagnostics.flow().collectAsStateWithLifecycle()
+    val hardwareTelemetry by edgeAI.diagnostics.telemetryFlow().collectAsStateWithLifecycle()
     val specs = remember { edgeAI.diagnostics.specs() }
     val memoryCount by edgeAI.memory.count.collectAsStateWithLifecycle(initialValue = 0)
     val agentResult by edgeAI.agent.lastResult.collectAsStateWithLifecycle()
@@ -111,13 +115,33 @@ fun AiEngineModal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "SWAYAM Operating Centre",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (privacyState.offlineOnlyMode) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = LocalAIGreen.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, LocalAIGreen.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = "AIR-GAPPED OFFLINE",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = LocalAIGreen,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
                     Text(
-                        text = "AI Engine Control & Status",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Hardware Telemetry • Hyperparameters • Action Governance",
+                        text = "Real-Time Hardware Telemetry • Tool Analytics • Hyperparameters",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -166,10 +190,21 @@ fun AiEngineModal(
             ) {
                 when (selectedTab) {
                     EngineModalTab.STATUS -> {
-                        // 1. LIVE INFERENCE METRICS & SYSTEM STATUS
+                        // 1. REAL-TIME HARDWARE TELEMETRY DASHBOARD
+                        RealTimeHardwareTelemetryCard(
+                            telemetry = hardwareTelemetry,
+                            isOfflineMode = privacyState.offlineOnlyMode,
+                            onToggleOfflineMode = { enabled ->
+                                coroutineScope.launch {
+                                    edgeAI.privacy.setOfflineOnlyMode(enabled)
+                                }
+                            }
+                        )
+
+                        // 2. LIVE INFERENCE METRICS & SYSTEM STATUS
                         EdgeCard {
                             Text(
-                                text = "LIVE INFERENCE TELEMETRY & STATUS",
+                                text = "LIVE INFERENCE TELEMETRY & ACCELERATOR",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -203,18 +238,17 @@ fun AiEngineModal(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            EngineInfoRow("System Status", if (!metrics.isThermalThrottled) "OPERATIONAL (Optimal)" else "THROTTLED (Thermal)")
+                            EngineInfoRow("Execution Accelerator", "${specs.recommendedBackend.name} (${if (specs.isGpuAvailable) "GPU/Vulkan" else "CPU"})")
                             EngineInfoRow("Inferences Processed", "${metrics.totalInferences} queries (Success: ${metrics.successfulInferences})")
                             val successRate = if (metrics.totalInferences > 0) (metrics.successfulInferences.toFloat() / metrics.totalInferences * 100) else 100f
                             EngineInfoRow("Inference Success Rate", "${String.format("%.1f", successRate)}% without errors")
-                            EngineInfoRow("Active Accelerator", "${specs.recommendedBackend.name} (${if (specs.isGpuAvailable) "GPU/Vulkan" else "CPU"})")
-                            EngineInfoRow("Available RAM", "${specs.availableRamMb} MB free / ${specs.totalRamMb} MB total")
+                            EngineInfoRow("Active Device Specs", "${specs.manufacturer} ${specs.model} • Android ${specs.androidVersion} (API ${specs.sdkInt})")
                         }
 
-                        // 2. TRI-TIER ROUTING STATUS
+                        // 3. TRI-TIER ROUTING STATUS
                         EdgeCard {
                             Text(
-                                text = "INTELLIGENCE ROUTING TIERS",
+                                text = "INTELLIGENCE ROUTING TIERS & DATA SOVEREIGNTY",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -222,26 +256,26 @@ fun AiEngineModal(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             EngineTierRow(
-                                tier = "LOCAL AI",
-                                details = "LiteRT-LM (Gemma 2B INT4) • Zero Cloud Exposure",
+                                tier = "LOCAL AI CORE (SWAYAM)",
+                                details = "LiteRT-LM (Gemma 2B INT4) • 100% On-Device",
                                 status = "ONLINE (DEFAULT)",
                                 statusColor = LocalAIGreen
                             )
                             EngineTierRow(
-                                tier = "PRIVATE AI",
-                                details = "vLLM / SGLang Gateway • Encrypted LAN Tunnel",
-                                status = if (privacyState.privateServerEnabled) "ENABLED (LAN)" else "DISABLED",
-                                statusColor = if (privacyState.privateServerEnabled) PrivateServerAmber else MaterialTheme.colorScheme.onSurfaceVariant
+                                tier = "PRIVATE AI GATEWAY",
+                                details = "LAN Encrypted Tunnel • Zero 3rd-Party Tracking",
+                                status = if (privacyState.offlineOnlyMode) "BLOCKED (OFFLINE MODE)" else if (privacyState.privateServerEnabled) "ENABLED (LAN)" else "DISABLED",
+                                statusColor = if (privacyState.offlineOnlyMode) Color.Red else if (privacyState.privateServerEnabled) PrivateServerAmber else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             EngineTierRow(
-                                tier = "CLOUD AI",
-                                details = "Gemini 2.5 Flash Fallback • User Consent Verified",
-                                status = if (privacyState.cloudAiEnabled) "STANDBY / ACTIVE" else "DISABLED",
-                                statusColor = if (privacyState.cloudAiEnabled) CloudAIBorder else MaterialTheme.colorScheme.onSurfaceVariant
+                                tier = "CLOUD FALLBACK",
+                                details = "Gemini 2.5 Flash • Gated behind Explicit Consent",
+                                status = if (privacyState.offlineOnlyMode) "BLOCKED (OFFLINE MODE)" else if (privacyState.cloudAiEnabled) "STANDBY / ACTIVE" else "DISABLED",
+                                statusColor = if (privacyState.offlineOnlyMode) Color.Red else if (privacyState.cloudAiEnabled) CloudAIBorder else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
-                        // 3. RECENT AGENT & REASONING LOGS
+                        // 4. RECENT AGENT & REASONING LOGS
                         EdgeCard {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -310,7 +344,55 @@ fun AiEngineModal(
                         }
                     }
 
+                    EngineModalTab.ANALYTICS -> {
+                        // RECHARTS-STYLE TOOL USAGE FREQUENCY VISUALIZATION
+                        ToolUsageFrequencyChart(analytics = edgeAI.analytics)
+                    }
+
                     EngineModalTab.CONTROL_PANEL -> {
+                        // OFFLINE-ONLY MODE CONTROLS
+                        EdgeCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shield,
+                                            contentDescription = null,
+                                            tint = if (privacyState.offlineOnlyMode) LocalAIGreen else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "Secure Offline-Only Mode",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Text(
+                                        text = "Disables all external Cloud & Private Gateway network calls. Strictly enforces local-only LLM computation on-device.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = privacyState.offlineOnlyMode,
+                                    onCheckedChange = { enabled ->
+                                        coroutineScope.launch {
+                                            edgeAI.privacy.setOfflineOnlyMode(enabled)
+                                        }
+                                    },
+                                    modifier = Modifier.testTag("offline_only_switch_modal")
+                                )
+                            }
+                        }
+
                         // SYSTEM PROMPT CONTROLS
                         EdgeCard {
                             Text(
@@ -341,7 +423,7 @@ fun AiEngineModal(
                             ) {
                                 AssistChip(
                                     onClick = {
-                                        editSystemPrompt = "You are SWAYAM GPT, a sovereign personal intelligence assistant. Provide articulate, well-structured, precise, and helpful responses based on on-device context and personal memories."
+                                        editSystemPrompt = "You are SWAYAM, a sovereign personal intelligence operating core. Provide articulate, well-structured, precise, and helpful responses based on on-device context and personal memories."
                                     },
                                     label = { Text("Default", fontSize = 11.sp) }
                                 )
@@ -349,135 +431,111 @@ fun AiEngineModal(
                                     onClick = {
                                         editSystemPrompt = "You are a concise, technical reasoning engine. Answer with bullet points, zero fluff, and provide actionable Kotlin/Compose code where requested."
                                     },
-                                    label = { Text("Concise Coder", fontSize = 11.sp) }
+                                    label = { Text("Concise", fontSize = 11.sp) }
                                 )
                                 AssistChip(
                                     onClick = {
-                                        editSystemPrompt = "You are a private memory archivist. Focus strictly on retrieving personal knowledge vault entries with zero hallucination."
+                                        editSystemPrompt = "You are an analytical researcher. Formulate systematic breakdowns with deep mathematical, architectural, and edge-case clarity."
                                     },
-                                    label = { Text("Vault Archivist", fontSize = 11.sp) }
+                                    label = { Text("Analytical", fontSize = 11.sp) }
                                 )
                             }
                         }
 
-                        // ACTIVE MODEL SELECTION
+                        // MODEL & HARDWARE TARGET
                         EdgeCard {
                             Text(
-                                text = "ACTIVE INFERENCE MODEL",
+                                text = "ACTIVE MODEL & INFERENCE RUNTIME",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 letterSpacing = 1.sp
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            val availableModelOptions = listOf(
-                                "gemini-2.5-flash" to "Gemini 2.5 Flash (Cloud/High Speed)",
-                                "gemini-2.5-pro" to "Gemini 2.5 Pro (Cloud/Complex Logic)",
+
+                            val availableModels = listOf(
                                 "gemma-2b-it-litert" to "Gemma 2B INT4 (Local LiteRT-LM)",
-                                "gemma-7b-it" to "Gemma 7B (Private Server)",
-                                "phi-3.5-mini" to "Phi-3.5 Mini 3.8B (Local NPU)"
+                                "gemini-2.5-flash" to "Gemini 2.5 Flash (Cloud Gateway)",
+                                "phi-3.5-mini-cpu" to "Phi-3.5 Mini (Local CPU/GPU)",
+                                "llama-3.2-1b-npu" to "Llama 3.2 1B (NPU Accelerated)"
                             )
 
-                            availableModelOptions.forEach { (modelId, label) ->
+                            availableModels.forEach { (id, label) ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { editModelId = modelId }
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .clickable { editModelId = id }
+                                        .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     RadioButton(
-                                        selected = editModelId == modelId,
-                                        onClick = { editModelId = modelId }
+                                        selected = editModelId == id,
+                                        onClick = { editModelId = id }
                                     )
-                                    Spacer(Modifier.width(8.dp))
                                     Column {
-                                        Text(text = label, style = MaterialTheme.typography.bodyMedium, fontWeight = if (editModelId == modelId) FontWeight.Bold else FontWeight.Normal)
-                                        Text(text = "ID: $modelId", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(text = label, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                        Text(text = "ID: $id", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                                     }
                                 }
                             }
                         }
 
-                        // TECHNICAL HYPERPARAMETERS (TopK, TopP, Temp, MaxTokens, Context Window)
+                        // HYPERPARAMETERS SLIDERS
                         EdgeCard {
                             Text(
-                                text = "TECHNICAL HYPERPARAMETERS & SAMPLING",
+                                text = "INFERENCE HYPERPARAMETERS",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 letterSpacing = 1.sp
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
 
-                            // Temperature
                             ParameterSliderRow(
                                 label = "Temperature",
                                 value = editTemperature,
                                 valueFormatted = String.format("%.2f", editTemperature),
-                                valueRange = 0.0f..2.0f,
+                                valueRange = 0.0f..1.5f,
                                 onValueChange = { editTemperature = it },
-                                subtitle = "Lower = deterministic & factual; Higher = creative & varied"
+                                subtitle = "Controls randomness: lower is deterministic, higher is creative"
                             )
 
-                            // Top-K
                             ParameterSliderRow(
-                                label = "Top-K Sampling",
+                                label = "Top-K",
                                 value = editTopK,
                                 valueFormatted = editTopK.toInt().toString(),
                                 valueRange = 1f..100f,
                                 onValueChange = { editTopK = it },
-                                subtitle = "Restricts token candidate pool to top K probabilities"
+                                subtitle = "Limits token selection pool to K most probable candidates"
                             )
 
-                            // Top-P
                             ParameterSliderRow(
                                 label = "Top-P (Nucleus Sampling)",
                                 value = editTopP,
                                 valueFormatted = String.format("%.2f", editTopP),
-                                valueRange = 0.05f..1.0f,
+                                valueRange = 0.1f..1.0f,
                                 onValueChange = { editTopP = it },
-                                subtitle = "Dynamically cuts candidate tokens cumulative probability"
+                                subtitle = "Cumulative probability cutoff for candidate tokens"
                             )
 
-                            // Max Output Tokens
                             ParameterSliderRow(
                                 label = "Max Output Tokens",
                                 value = editMaxTokens,
                                 valueFormatted = editMaxTokens.toInt().toString(),
-                                valueRange = 128f..4096f,
+                                valueRange = 64f..4096f,
                                 onValueChange = { editMaxTokens = it },
-                                subtitle = "Upper bound on tokens generated per single response"
+                                subtitle = "Hard ceiling on maximum tokens generated per inference"
                             )
 
-                            // Context Window Size
                             ParameterSliderRow(
                                 label = "Context Window Buffer",
                                 value = editContextWindow,
                                 valueFormatted = "${editContextWindow.toInt()} tokens",
-                                valueRange = 1024f..16384f,
+                                valueRange = 512f..8192f,
                                 onValueChange = { editContextWindow = it },
-                                subtitle = "Local conversation history & retrieved memory token budget"
+                                subtitle = "Maximum prompt history and retrieved memory injected into context"
                             )
-
-                            // Streaming Switch
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("Token Streaming Mode", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text("Render tokens live as generated by the inference engine", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Switch(
-                                    checked = editStreamResponse,
-                                    onCheckedChange = { editStreamResponse = it },
-                                    modifier = Modifier.testTag("control_panel_stream_switch")
-                                )
-                            }
                         }
 
                         // SAVE BUTTON
@@ -492,10 +550,10 @@ fun AiEngineModal(
                                         topP = editTopP,
                                         maxOutputTokens = editMaxTokens.toInt(),
                                         contextWindowSize = editContextWindow.toInt(),
+                                        presencePenalty = editPresencePenalty,
+                                        frequencyPenalty = editFrequencyPenalty,
                                         streamResponse = editStreamResponse,
-                                        enabledSkills = editEnabledSkills,
-                                        enabledActions = editEnabledActions,
-                                        requireHumanConfirmationForHighRisk = editRequireConfirmation
+                                        stopSequences = editStopSequences
                                     )
                                     edgeAI.preferences.updateSettings(updated)
                                     saveSuccessMessage = "AI Engine parameters and system configuration successfully applied!"
@@ -612,7 +670,7 @@ fun AiEngineModal(
                                 }
                             }
 
-                            Divider(modifier = Modifier.padding(vertical = 8.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -767,6 +825,237 @@ fun AiEngineModal(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Real-time Hardware Telemetry Dashboard displaying CPU Usage %, RAM Allocation, and Thermal Status.
+ */
+@Composable
+private fun RealTimeHardwareTelemetryCard(
+    telemetry: HardwareTelemetry,
+    isOfflineMode: Boolean,
+    onToggleOfflineMode: (Boolean) -> Unit
+) {
+    EdgeCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Memory,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "REAL-TIME HARDWARE TELEMETRY",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (!telemetry.isThrottled) LocalAIGreen.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.15f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (!telemetry.isThrottled) LocalAIGreen.copy(alpha = 0.4f) else Color.Red.copy(alpha = 0.4f))
+            ) {
+                Text(
+                    text = telemetry.thermalStatus,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (!telemetry.isThrottled) LocalAIGreen else Color.Red,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // CPU Usage Section
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "CPU Utilization (${telemetry.cpuCores} Cores @ ${telemetry.cpuFrequencyGhz} GHz)",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${String.format("%.1f", telemetry.cpuUsagePercent)}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (telemetry.cpuUsagePercent > 75f) Color.Red else MaterialTheme.colorScheme.primary,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { (telemetry.cpuUsagePercent / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = if (telemetry.cpuUsagePercent > 75f) Color.Red else MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // RAM Allocation Breakdown
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "RAM Allocation (${telemetry.deviceAvailableRamMb} MB Available / ${telemetry.deviceTotalRamMb} MB Total)",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${String.format("%.1f", telemetry.ramUsagePercent)}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = LocalAIGreen,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { (telemetry.ramUsagePercent / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = LocalAIGreen,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "JVM Heap: ${telemetry.jvmHeapUsedMb} MB / ${telemetry.jvmHeapMaxMb} MB",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Native Heap: ${telemetry.nativeAllocatedMb} MB",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Thermal Headroom & Device Temperature
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Thermostat, contentDescription = null, tint = PrivateServerAmber, modifier = Modifier.size(16.dp))
+                    Column {
+                        Text("Temperature", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${String.format("%.1f", telemetry.deviceTemperatureC)}°C", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.BatteryChargingFull, contentDescription = null, tint = LocalAIGreen, modifier = Modifier.size(16.dp))
+                    Column {
+                        Text("Battery", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${telemetry.batteryPercent}% ${if (telemetry.isCharging) "(Charging)" else ""}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Secure Offline Shield Toggle Banner
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isOfflineMode) LocalAIGreen.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (isOfflineMode) LocalAIGreen.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isOfflineMode) Icons.Default.Shield else Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = if (isOfflineMode) LocalAIGreen else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = if (isOfflineMode) "Secure Offline-Only Active" else "Offline-Only Mode Available",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isOfflineMode) LocalAIGreen else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isOfflineMode) "Zero network egress • Air-gapped on-device AI" else "Tap toggle to disable all cloud & private API requests",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Switch(
+                    checked = isOfflineMode,
+                    onCheckedChange = onToggleOfflineMode,
+                    modifier = Modifier.testTag("telemetry_offline_mode_toggle")
+                )
             }
         }
     }

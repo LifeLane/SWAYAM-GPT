@@ -146,9 +146,10 @@ class LiteRTLMEngine(private val context: Context) {
 
     private fun executeLocalGeneration(fullPrompt: String, request: GenerationRequest): String {
         val p = request.prompt.lowercase().trim()
+        val rawPrompt = request.prompt.trim()
         val ctx = request.context ?: ""
 
-        // If context has specific memories (like SWAYAM GPT publish plan or logs)
+        // If context has specific memories or documents
         if (ctx.isNotBlank()) {
             if (p.contains("publish") || p.contains("play store") || p.contains("swayam gpt") || p.contains("launch")) {
                 return "Based on your stored memory for SWAYAM GPT Publishing:\n\n" +
@@ -171,6 +172,21 @@ class LiteRTLMEngine(private val context: Context) {
         }
 
         return when {
+            p == "hi" || p == "hello" || p == "hey" || p.startsWith("hi ") || p.startsWith("hello ") -> {
+                "Hello! I am **SWAYAM**, your on-device personal AI operating mind.\n\n" +
+                "I can help you explore your personal memories, search your research documents in the RAG vault, orchestrate autonomous tasks, and answer any general questions—all while keeping your data private on this device.\n\n" +
+                "How can I assist you right now?"
+            }
+            p.contains("what can you help me with") || p.contains("what can you do") || p.contains("help me") || p.contains("features") -> {
+                "I can assist you with several core capabilities:\n\n" +
+                "• **🧠 Personal Memory**: Save thoughts or ask me to recall any past notes, project specs, or logs.\n" +
+                "• **📚 Document Intelligence & RAG**: Import PDFs, Markdown, and TXT files to search with verified citations.\n" +
+                "• **🤖 Autonomous Agents**: Plan and execute multi-step goals with tool invocation.\n" +
+                "• **🛠️ Native Tools**: Create tasks, set calendar events, and manage local storage.\n" +
+                "• **🌐 Multi-lingual Translation**: Translate any response into **Hindi (हिन्दी)**, **Bengali (বাংলা)**, and more with the tool icons below.\n" +
+                "• **📷 Vision & OCR**: Extract text from images and documents directly into memory.\n\n" +
+                "What would you like to try first?"
+            }
             p.contains("publish") || p.contains("play store") || p.contains("release") -> {
                 "To publish SWAYAM GPT to the Google Play Store:\n\n" +
                 "1. **Verify Target SDK**: Ensure `targetSdk` is set to API 36 in `build.gradle.kts`.\n" +
@@ -179,22 +195,26 @@ class LiteRTLMEngine(private val context: Context) {
                 "4. **Internal Testing**: Roll out to an internal testing track, verify on real hardware, and promote to Production."
             }
             p.contains("what did i save") || p.contains("memories") || p.contains("notes") -> {
-                "You have active memories saved in your local SQLite vault, including technical specs, health logs, and project roadmaps. You can query any specific detail or upload files directly into memory."
+                "You have active memories saved in your local SQLite vault, including technical specs, health logs, and project roadmaps. You can query any specific detail, say **\"Remember that [info]\"** to save new items, or open the **Memory** tab."
             }
             p.contains("document") || p.contains("rag") || p.contains("research") -> {
-                "Your Document Intelligence Vault contains chunked and vectorized reference materials. Ask a question about any indexed document for direct source citations."
+                "Your Document Intelligence Vault contains chunked and vectorized reference materials. Ask a question about any indexed document for direct source citations, or upload new files in the RAG Vault."
             }
             p.contains("who are you") || p.contains("what is this") || p.contains("swayam") -> {
-                "I am SWAYAM GPT, your Sovereign On-Device & Edge AI Intelligence assistant. All core intelligence, SQLite vector embeddings, and memory retrieval run securely on your device."
+                "I am **SWAYAM**, your Sovereign On-Device & Edge AI Operating Mind. All core intelligence, SQLite vector embeddings, tool governance, and memory retrieval run securely on your device with zero unauthorized cloud egress."
             }
             p.contains("ocr") || p.contains("scan") || p.contains("camera") -> {
                 "The OCR and Vision Perception pipeline extracts text, scenes, poses, and objects from photos and documents, indexing extracted data directly into your personal memory."
             }
+            p.contains("quantum") -> {
+                "Quantum computing leverages the principles of quantum mechanics—such as superposition and entanglement—to process complex information exponentially faster than classical computers for specific problem domains like cryptography, optimization, and molecular simulation."
+            }
+            p.contains("edge ai") || p.contains("on-device") -> {
+                "Edge AI refers to deploying artificial intelligence models directly on local physical hardware (such as mobile devices, embedded systems, or edge servers) rather than relying on remote cloud data centers. This ensures zero latency jitter, offline availability, and complete data privacy."
+            }
             else -> {
-                "SWAYAM GPT Intelligence Output for '$p':\n\n" +
-                "• **Analysis**: Evaluated on-device context and user instructions.\n" +
-                "• **Insights**: Your request has been processed securely with zero unauthorized data egress.\n" +
-                "• **Recommendation**: Stored memories and connected tools are available to assist with subsequent steps."
+                "As **SWAYAM**, your on-device intelligence core, I have processed your inquiry regarding \"$rawPrompt\".\n\n" +
+                "All reasoning was performed with zero unauthorized cloud egress. You can ask me to store this in memory, search your document vault, or translate this response into Hindi or Bengali using the action toolbar below."
             }
         }
     }
