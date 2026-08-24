@@ -92,4 +92,21 @@ val relevantMemories = edgeAI.memory.recall("roadmap")
 - **Scoped Tool Access**: LLMs never receive raw API handles; all operations execute through typed schema definitions inside `ToolGateway`.
 - **MCP Trust Boundaries**: Every MCP server is assigned a trust level (`TRUSTED_LOCAL`, `TRUSTED_PRIVATE`, `USER_APPROVED_REMOTE`, `UNTRUSTED`).
 
+---
+
+## 📦 Google Play Release & Permanent Signing
+
+Release artifacts (APK and Google Play App Bundle `.aab`) are signed using a permanent upload key stored securely as GitHub Secrets.
+
+### Required GitHub Secrets
+- `KEYSTORE_BASE64`: Base64-encoded string of the permanent upload keystore (`my-upload-key.jks`).
+- `STORE_PASSWORD`: Keystore password.
+- `KEY_PASSWORD`: Private key alias password (`upload`).
+
+### Automated Artifacts
+- **`swayam-gpt-aab`**: Signed Android App Bundle ready for Google Play Console upload.
+- **`swayam-gpt-apk`**: Signed release APK for testing.
+
+For detailed step-by-step instructions on generating, encoding, and managing the permanent upload key, see [Google Play Release Guide](docs/PLAY_STORE_RELEASE.md).
+
 For detailed documentation, see the [docs/](docs/) directory.

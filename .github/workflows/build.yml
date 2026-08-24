@@ -34,7 +34,7 @@ jobs:
       # =========================================================
 
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -44,7 +44,7 @@ jobs:
       # =========================================================
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: "17"
           distribution: "temurin"
@@ -56,9 +56,7 @@ jobs:
       # =========================================================
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: "9.3.1"
+        uses: gradle/actions/setup-gradle@v4
 
 
       # =========================================================
@@ -74,53 +72,48 @@ jobs:
             chmod +x ./gradlew
             ./gradlew --version
           else
-            echo "Gradle wrapper not found."
-            echo "Using installed Gradle instead."
+            echo "Gradle wrapper not found. Using installed Gradle."
             gradle --version
           fi
 
 
       # =========================================================
-      # 5. CREATE RELEASE SIGNING KEY
+      # 5. RESTORE PERMANENT RELEASE SIGNING KEY
       # =========================================================
 
-      - name: Setup Release Keystore
+      - name: Setup Permanent Release Keystore
         env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
         run: |
+          echo "Validating release signing credentials..."
 
-          echo "Preparing Android release signing key..."
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is missing. Release builds require a permanent upload keystore configured in repository secrets."
+            exit 1
+          fi
 
           if [ -z "$STORE_PASSWORD" ]; then
-            echo "ERROR: STORE_PASSWORD secret is missing."
+            echo "::error::STORE_PASSWORD secret is missing. Keystore password is required."
             exit 1
           fi
 
           if [ -z "$KEY_PASSWORD" ]; then
-            echo "ERROR: KEY_PASSWORD secret is missing."
+            echo "::error::KEY_PASSWORD secret is missing. Key alias password is required."
             exit 1
           fi
 
-          if [ ! -f "my-upload-key.jks" ]; then
+          echo "Decoding permanent release keystore..."
+          echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
 
-            echo "Creating release signing key..."
-
-            keytool -genkeypair \
-              -v \
-              -keystore my-upload-key.jks \
-              -storepass "$STORE_PASSWORD" \
-              -alias upload \
-              -keypass "$KEY_PASSWORD" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=SWAYAM-GPT Upload Key,O=LifeLane,C=IN"
-
+          if [ ! -s "my-upload-key.jks" ]; then
+            echo "::error::Decoded keystore file is empty or corrupted."
+            exit 1
           fi
 
-          echo "Release signing key is ready."
+          echo "Permanent release keystore successfully prepared."
 
 
       # =========================================================
@@ -128,13 +121,7 @@ jobs:
       # =========================================================
 
       - name: Build Debug APK
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
         run: |
-
           if [ -f "./gradlew" ]; then
             ./gradlew assembleDebug --no-daemon
           else
@@ -153,7 +140,6 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
         run: |
-
           if [ -f "./gradlew" ]; then
             ./gradlew assembleRelease --no-daemon
           else
@@ -162,7 +148,7 @@ jobs:
 
 
       # =========================================================
-      # 8. BUILD RELEASE AAB
+      # 8. BUILD RELEASE AAB (GOOGLE PLAY BUNDLE)
       # =========================================================
 
       - name: Build Release AAB
@@ -172,7 +158,6 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
         run: |
-
           if [ -f "./gradlew" ]; then
             ./gradlew bundleRelease --no-daemon
           else
@@ -188,7 +173,6 @@ jobs:
         if: always()
 
         run: |
-
           echo ""
           echo "=========================================="
           echo "APK FILES"
@@ -211,11 +195,11 @@ jobs:
 
 
       # =========================================================
-      # 10. UPLOAD APK
+      # 10. UPLOAD APK ARTIFACT
       # =========================================================
 
       - name: Upload APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: swayam-gpt-apk
           path: app/build/outputs/apk/**/*.apk
@@ -224,11 +208,11 @@ jobs:
 
 
       # =========================================================
-      # 11. UPLOAD AAB
+      # 11. UPLOAD AAB ARTIFACT (PLAY STORE READY)
       # =========================================================
 
       - name: Upload AAB
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: swayam-gpt-aab
           path: app/build/outputs/bundle/**/*.aab
@@ -237,11 +221,12 @@ jobs:
 
 
       # =========================================================
-      # 12. CLEAN SIGNING KEY
+      # 12. CLEAN SIGNING KEY (ALWAYS RUNS)
       # =========================================================
 
       - name: Clean Signing Key
         if: always()
 
         run: |
+          echo "Securely removing temporary keystore from runner..."
           rm -f my-upload-key.jks
