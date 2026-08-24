@@ -17,9 +17,8 @@ android {
     applicationId = "com.mitsara.swayam"
     minSdk = 24
     targetSdk = 36
-    versionCode 2
-        versionName "2.1.0-beta02"
-
+    versionCode = 2
+    versionName = "2.1.0-beta02"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
