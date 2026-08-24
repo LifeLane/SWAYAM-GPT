@@ -2,61 +2,256 @@ name: Build & Release Automation
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
     tags:
-      - 'v*'
+      - "v*"
+
   pull_request:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
+
   workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  build_apks:
-    name: Build & Package APKs
+  build_android:
+    name: Build APK & AAB
     runs-on: ubuntu-latest
 
     steps:
+
+      # =========================================================
+      # 1. GET PROJECT CODE
+      # =========================================================
+
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
+
+      # =========================================================
+      # 2. INSTALL JAVA
+      # =========================================================
+
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+
+      # =========================================================
+      # 3. SETUP GRADLE
+      # =========================================================
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.3.1'
+        uses: gradle/actions/setup-gradle@v6
+
+
+      # =========================================================
+      # 4. MAKE GRADLE WRAPPER EXECUTABLE
+      # =========================================================
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+
+      # =========================================================
+      # 5. SHOW ENVIRONMENT
+      # =========================================================
+
+      - name: Show Build Environment
+        run: |
+          echo "Java version:"
+          java -version
+
+          echo ""
+          echo "Gradle version:"
+          ./gradlew --version
+
+
+      # =========================================================
+      # 6. CREATE SIGNING KEY
+      #
+      # Your Gradle project expects:
+      #
+      # KEYSTORE_PATH
+      # STORE_PASSWORD
+      # KEY_PASSWORD
+      #
+      # The two passwords come from GitHub Secrets.
+      # =========================================================
 
       - name: Setup Release Keystore
-        run: |
-          if [ ! -f "my-upload-key.jks" ]; then
-            keytool -genkey -v -keystore my-upload-key.jks -storepass android -alias upload -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Upload Key,O=Android,C=US"
-          fi
-
-      - name: Compile & Assemble All Variants
         env:
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
         run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assemble --no-daemon
-          else
-            gradle assemble --no-daemon
+
+          echo "Preparing Android release signing key..."
+
+          if [ -z "$STORE_PASSWORD" ]; then
+            echo "ERROR: STORE_PASSWORD secret is missing."
+            exit 1
           fi
 
-      - name: Archive APK Artifacts
-        uses: actions/upload-artifact@v4
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "ERROR: KEY_PASSWORD secret is missing."
+            exit 1
+          fi
+
+          if [ ! -f "my-upload-key.jks" ]; then
+
+            echo "Creating release signing key..."
+
+            keytool -genkeypair \
+              -v \
+              -keystore my-upload-key.jks \
+              -storepass "$STORE_PASSWORD" \
+              -alias upload \
+              -keypass "$KEY_PASSWORD" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=SWAYAM-GPT Upload Key,O=LifeLane,C=IN"
+
+          else
+
+            echo "Existing release signing key found."
+
+          fi
+
+          echo "Release signing key is ready."
+
+
+      # =========================================================
+      # 7. BUILD DEBUG APK
+      #
+      # This is useful for testing the application.
+      # =========================================================
+
+      - name: Build Debug APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+        run: |
+          ./gradlew assembleDebug --no-daemon
+
+
+      # =========================================================
+      # 8. BUILD SIGNED RELEASE APK
+      #
+      # This is the installable production APK.
+      # =========================================================
+
+      - name: Build Release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+        run: |
+          ./gradlew assembleRelease --no-daemon
+
+
+      # =========================================================
+      # 9. BUILD SIGNED ANDROID APP BUNDLE
+      #
+      # THIS IS THE FILE YOU WILL USE FOR GOOGLE PLAY.
+      # =========================================================
+
+      - name: Build Release AAB
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+        run: |
+          ./gradlew bundleRelease --no-daemon
+
+
+      # =========================================================
+      # 10. SHOW GENERATED FILES
+      # =========================================================
+
+      - name: Show Build Outputs
+        if: always()
+
+        run: |
+
+          echo ""
+          echo "=========================================="
+          echo "APK FILES"
+          echo "=========================================="
+
+          find app/build/outputs/apk \
+            -type f \
+            -name "*.apk" \
+            -print 2>/dev/null || true
+
+
+          echo ""
+          echo "=========================================="
+          echo "AAB FILES"
+          echo "=========================================="
+
+          find app/build/outputs/bundle \
+            -type f \
+            -name "*.aab" \
+            -print 2>/dev/null || true
+
+
+      # =========================================================
+      # 11. UPLOAD APK
+      # =========================================================
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+
         with:
-          name: swayam-gpt-apks
+          name: swayam-gpt-apk
           path: app/build/outputs/apk/**/*.apk
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
+
+
+      # =========================================================
+      # 12. UPLOAD AAB
+      #
+      # THIS WILL APPEAR AS A SEPARATE DOWNLOAD
+      # IN GITHUB ACTIONS.
+      # =========================================================
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v7
+
+        with:
+          name: swayam-gpt-aab
+          path: app/build/outputs/bundle/**/*.aab
+          retention-days: 30
+          if-no-files-found: error
+
+
+      # =========================================================
+      # 13. REMOVE TEMPORARY KEY FROM RUNNER
+      # =========================================================
+
+      - name: Clean Signing Key
+        if: always()
+
+        run: |
+          rm -f my-upload-key.jks
