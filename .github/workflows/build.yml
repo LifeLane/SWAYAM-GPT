@@ -30,7 +30,7 @@ jobs:
     steps:
 
       # =========================================================
-      # 1. GET PROJECT CODE
+      # 1. CHECKOUT PROJECT
       # =========================================================
 
       - name: Checkout Repository
@@ -40,7 +40,7 @@ jobs:
 
 
       # =========================================================
-      # 2. INSTALL JAVA
+      # 2. JAVA
       # =========================================================
 
       - name: Set up JDK 17
@@ -57,40 +57,31 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.3.1"
 
 
       # =========================================================
-      # 4. MAKE GRADLE WRAPPER EXECUTABLE
+      # 4. CHECK GRADLE
       # =========================================================
 
-      - name: Make Gradle Wrapper Executable
-        run: chmod +x ./gradlew
-
-
-      # =========================================================
-      # 5. SHOW ENVIRONMENT
-      # =========================================================
-
-      - name: Show Build Environment
+      - name: Check Gradle Setup
         run: |
-          echo "Java version:"
-          java -version
+          echo "Checking Gradle installation..."
 
-          echo ""
-          echo "Gradle version:"
-          ./gradlew --version
+          if [ -f "./gradlew" ]; then
+            echo "Gradle wrapper found."
+            chmod +x ./gradlew
+            ./gradlew --version
+          else
+            echo "Gradle wrapper not found."
+            echo "Using installed Gradle instead."
+            gradle --version
+          fi
 
 
       # =========================================================
-      # 6. CREATE SIGNING KEY
-      #
-      # Your Gradle project expects:
-      #
-      # KEYSTORE_PATH
-      # STORE_PASSWORD
-      # KEY_PASSWORD
-      #
-      # The two passwords come from GitHub Secrets.
+      # 5. CREATE RELEASE SIGNING KEY
       # =========================================================
 
       - name: Setup Release Keystore
@@ -127,19 +118,13 @@ jobs:
               -validity 10000 \
               -dname "CN=SWAYAM-GPT Upload Key,O=LifeLane,C=IN"
 
-          else
-
-            echo "Existing release signing key found."
-
           fi
 
           echo "Release signing key is ready."
 
 
       # =========================================================
-      # 7. BUILD DEBUG APK
-      #
-      # This is useful for testing the application.
+      # 6. BUILD DEBUG APK
       # =========================================================
 
       - name: Build Debug APK
@@ -149,13 +134,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
         run: |
-          ./gradlew assembleDebug --no-daemon
+
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --no-daemon
+          else
+            gradle assembleDebug --no-daemon
+          fi
 
 
       # =========================================================
-      # 8. BUILD SIGNED RELEASE APK
-      #
-      # This is the installable production APK.
+      # 7. BUILD RELEASE APK
       # =========================================================
 
       - name: Build Release APK
@@ -165,13 +153,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
         run: |
-          ./gradlew assembleRelease --no-daemon
+
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleRelease --no-daemon
+          else
+            gradle assembleRelease --no-daemon
+          fi
 
 
       # =========================================================
-      # 9. BUILD SIGNED ANDROID APP BUNDLE
-      #
-      # THIS IS THE FILE YOU WILL USE FOR GOOGLE PLAY.
+      # 8. BUILD RELEASE AAB
       # =========================================================
 
       - name: Build Release AAB
@@ -181,11 +172,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
         run: |
-          ./gradlew bundleRelease --no-daemon
+
+          if [ -f "./gradlew" ]; then
+            ./gradlew bundleRelease --no-daemon
+          else
+            gradle bundleRelease --no-daemon
+          fi
 
 
       # =========================================================
-      # 10. SHOW GENERATED FILES
+      # 9. SHOW OUTPUTS
       # =========================================================
 
       - name: Show Build Outputs
@@ -203,7 +199,6 @@ jobs:
             -name "*.apk" \
             -print 2>/dev/null || true
 
-
           echo ""
           echo "=========================================="
           echo "AAB FILES"
@@ -216,12 +211,11 @@ jobs:
 
 
       # =========================================================
-      # 11. UPLOAD APK
+      # 10. UPLOAD APK
       # =========================================================
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
-
         with:
           name: swayam-gpt-apk
           path: app/build/outputs/apk/**/*.apk
@@ -230,15 +224,11 @@ jobs:
 
 
       # =========================================================
-      # 12. UPLOAD AAB
-      #
-      # THIS WILL APPEAR AS A SEPARATE DOWNLOAD
-      # IN GITHUB ACTIONS.
+      # 11. UPLOAD AAB
       # =========================================================
 
       - name: Upload AAB
         uses: actions/upload-artifact@v7
-
         with:
           name: swayam-gpt-aab
           path: app/build/outputs/bundle/**/*.aab
@@ -247,7 +237,7 @@ jobs:
 
 
       # =========================================================
-      # 13. REMOVE TEMPORARY KEY FROM RUNNER
+      # 12. CLEAN SIGNING KEY
       # =========================================================
 
       - name: Clean Signing Key
