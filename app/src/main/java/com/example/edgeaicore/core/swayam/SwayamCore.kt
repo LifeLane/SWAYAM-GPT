@@ -45,7 +45,9 @@ data class SwayamRequest(
     val topP: Float = 0.95f,
     val maxTokens: Int = 1024,
     val stream: Boolean = true,
-    val modelId: String = "gemini-2.5-flash"
+    val modelId: String = "gemini-2.5-flash",
+    val forcedPersonaId: String? = null,
+    val enablePersonaChain: Boolean = false
 )
 
 data class SwayamResponse(
@@ -62,7 +64,9 @@ data class SwayamResponse(
     val tokensPerSecond: Double = 0.0,
     val confidence: Float = 0.9f,
     val suggestedActions: List<String> = emptyList(),
-    val explanation: ExplanationRecord? = null
+    val explanation: ExplanationRecord? = null,
+    val personaChain: List<String> = emptyList(),
+    val activePersonaId: String? = null
 )
 
 /**
@@ -79,7 +83,8 @@ class SwayamCore(
     private val explanationEngine: ExplanationEngine,
     private val personaManager: SwayamPersonaManager
 ) {
-    val translator = SwayamTranslator(context, GeminiApiClient(context))
+    val translator = SwayamTranslator(context, GeminiApiClient(context), aiRouter)
+    val chainEngine = SwayamChainEngine(context, aiRouter, memoryEngine, knowledgeSearchEngine, toolGateway, GeminiApiClient(context))
     val persona: SwayamPersona get() = personaManager.persona.value
 
     suspend fun process(request: SwayamRequest): EdgeResult<SwayamResponse> = withContext(Dispatchers.IO) {
@@ -629,15 +634,65 @@ class SwayamCore(
         request: SwayamRequest,
         startTime: Long
     ): EdgeResult<SwayamResponse> {
-        val sysPrompt = persona.buildSystemPrompt(
-            capabilitiesSummary = SwayamCapabilitiesManifest.getSummaryText()
-        )
+        val qLower = query.lowercase()
+
+        // 1. Check if Persona Chain or Explicit Persona was requested
+        if (request.enablePersonaChain || qLower.contains("chain personas") || qLower.contains("persona chain") || qLower.contains("run chain")) {
+            val chainPersonas = chainEngine.selectOptimalChain(query)
+            val chainResult = chainEngine.executeChain(query, chainPersonas)
+
+            val latency = System.currentTimeMillis() - startTime
+            val formattedResponse = buildString {
+                append("⛓️ **SWAYAM Dynamic Persona Chain Executed**\n\n")
+                append("`").append(chainResult.chainSignature).append("`\n\n")
+                append(chainResult.finalResponse)
+            }
+
+            val explanation = explanationEngine.record(
+                featureName = "SWAYAM Persona Chain Engine",
+                whatHappened = "Chained ${chainPersonas.size} personas in sequence (${chainPersonas.joinToString { it.name }}) for multi-domain reasoning.",
+                whyReason = "User requested chained persona execution: '$query'",
+                confidenceScore = 0.98f,
+                dataSourcesUsed = chainPersonas.map { it.name },
+                wasAiInvolved = true,
+                providerType = AIProviderType.LOCAL,
+                privacyLevel = request.privacyLevel
+            )
+
+            return EdgeResult.Success(
+                SwayamResponse(
+                    text = formattedResponse,
+                    mode = SwayamProcessingMode.GENERAL_CHAT,
+                    provider = AIProviderType.LOCAL,
+                    networkUsed = false,
+                    latencyMs = latency,
+                    tokensGenerated = (formattedResponse.length / 4).coerceAtLeast(1),
+                    tokensPerSecond = 48.0,
+                    confidence = 0.98f,
+                    explanation = explanation,
+                    personaChain = chainPersonas.map { it.name },
+                    activePersonaId = chainPersonas.lastOrNull()?.id
+                )
+            )
+        }
+
+        // 2. Check if a specific persona is forced or selected
+        val activePersona = if (!request.forcedPersonaId.isNullOrBlank()) {
+            SwayamPersonaRegistry.getById(request.forcedPersonaId)
+        } else {
+            SwayamPersonaRegistry.MASTER_SOVEREIGN_CORE
+        }
+
+        val sysPrompt = buildString {
+            append(activePersona.systemPrompt).append("\n\n")
+            append(persona.buildSystemPrompt(capabilitiesSummary = SwayamCapabilitiesManifest.getSummaryText()))
+        }
 
         val aiReq = AIRequest(
             prompt = query,
             systemInstruction = sysPrompt,
             privacyLevel = request.privacyLevel,
-            temperature = request.temperature,
+            temperature = activePersona.defaultTemperature,
             topK = request.topK,
             topP = request.topP,
             maxTokens = request.maxTokens,
@@ -659,11 +714,11 @@ class SwayamCore(
         val provider = (aiResult as? EdgeResult.Success)?.data?.provider ?: AIProviderType.LOCAL
 
         val explanation = explanationEngine.record(
-            featureName = "SWAYAM Conversational Mind",
-            whatHappened = "Processed conversational reasoning through the on-device LiteRT-LM neural engine / sovereign AI core.",
+            featureName = "SWAYAM Conversational Mind [${activePersona.name}]",
+            whatHappened = "Processed conversational reasoning through the on-device LiteRT-LM neural engine / sovereign AI core with ${activePersona.roleTitle}.",
             whyReason = "General prompt input: '$query'",
             confidenceScore = 0.95f,
-            dataSourcesUsed = listOf("SWAYAM Neural Model"),
+            dataSourcesUsed = listOf("SWAYAM Neural Model", activePersona.name),
             wasAiInvolved = true,
             providerType = provider,
             privacyLevel = request.privacyLevel
@@ -679,7 +734,8 @@ class SwayamCore(
                 tokensGenerated = (text.length / 4).coerceAtLeast(1),
                 tokensPerSecond = 45.0,
                 confidence = 0.95f,
-                explanation = explanation
+                explanation = explanation,
+                activePersonaId = activePersona.id
             )
         )
     }

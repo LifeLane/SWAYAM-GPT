@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -34,12 +35,17 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.LocalAIGreen
 
 /**
- * Rich message content renderer supporting:
- * - Markdown formatted text (Headers, Bold, Italic, Bullet lists, Numbered lists, Blockquotes)
- * - Code blocks with syntax badge and copy button
- * - JSON viewer with formatted tree structure and copy button
- * - Markdown tables formatted into clean Compose grids
- * - Key-value metric charts & progress bars
+ * Rich message content renderer:
+ * Provides structured, typography-balanced visual rendering for conversational AI responses:
+ * - Markdown Headers with accent indicators and clean hierarchy
+ * - Bullet list items with dedicated dot badges and proper indentation
+ * - Numbered steps with colored sequence pills
+ * - Syntax-highlighted code blocks with line numbers, language tag, and copy action
+ * - Interactive JSON trees with copy payload action
+ * - Responsive zebra-striped Markdown tables
+ * - Callout & blockquote panels with vertical accent strip
+ * - Metric progress charts and Key-Value highlights
+ * - Inline bold, italic, code pills, and tags
  */
 @Composable
 fun RichMessageContent(
@@ -51,7 +57,10 @@ fun RichMessageContent(
     if (isUser) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                lineHeight = 22.sp,
+                letterSpacing = 0.1.sp
+            ),
             color = textColor,
             modifier = modifier
         )
@@ -67,15 +76,13 @@ fun RichMessageContent(
         blocks.forEach { block ->
             when (block) {
                 is MessageBlock.Header -> {
-                    Text(
-                        text = block.text,
-                        style = when (block.level) {
-                            1 -> MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                            2 -> MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            else -> MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        },
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    HeaderBlockView(level = block.level, text = block.text)
+                }
+                is MessageBlock.BulletList -> {
+                    BulletListView(items = block.items, textColor = textColor)
+                }
+                is MessageBlock.NumberedList -> {
+                    NumberedListView(items = block.items, textColor = textColor)
                 }
                 is MessageBlock.Code -> {
                     CodeBlockView(language = block.language, code = block.code)
@@ -92,8 +99,8 @@ fun RichMessageContent(
                 is MessageBlock.BlockQuote -> {
                     BlockQuoteView(text = block.text)
                 }
-                is MessageBlock.FormattedText -> {
-                    FormattedTextView(text = block.text, textColor = textColor)
+                is MessageBlock.FormattedParagraph -> {
+                    FormattedParagraphView(text = block.text, textColor = textColor)
                 }
             }
         }
@@ -102,12 +109,14 @@ fun RichMessageContent(
 
 sealed class MessageBlock {
     data class Header(val level: Int, val text: String) : MessageBlock()
+    data class BulletList(val items: List<String>) : MessageBlock()
+    data class NumberedList(val items: List<Pair<Int, String>>) : MessageBlock()
     data class Code(val language: String, val code: String) : MessageBlock()
     data class JsonBlock(val rawJson: String) : MessageBlock()
     data class Table(val headers: List<String>, val rows: List<List<String>>) : MessageBlock()
     data class ChartData(val title: String, val items: List<Pair<String, Float>>) : MessageBlock()
     data class BlockQuote(val text: String) : MessageBlock()
-    data class FormattedText(val text: String) : MessageBlock()
+    data class FormattedParagraph(val text: String) : MessageBlock()
 }
 
 /**
@@ -119,11 +128,18 @@ private fun parseMessageBlocks(rawText: String): List<MessageBlock> {
     var i = 0
 
     while (i < lines.size) {
-        val line = lines[i]
+        val rawLine = lines[i]
+        val trimmed = rawLine.trim()
+
+        // Empty lines
+        if (trimmed.isEmpty()) {
+            i++
+            continue
+        }
 
         // 1. Code Block ```
-        if (line.trimStart().startsWith("```")) {
-            val lang = line.trimStart().removePrefix("```").trim()
+        if (trimmed.startsWith("```")) {
+            val lang = trimmed.removePrefix("```").trim()
             val codeLines = mutableListOf<String>()
             i++
             while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
@@ -141,8 +157,8 @@ private fun parseMessageBlocks(rawText: String): List<MessageBlock> {
         }
 
         // 2. Markdown Table (| col1 | col2 |)
-        if (line.trim().startsWith("|") && line.trim().endsWith("|") && i + 1 < lines.size && lines[i + 1].contains("---")) {
-            val headers = line.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+        if (trimmed.startsWith("|") && trimmed.endsWith("|") && i + 1 < lines.size && lines[i + 1].contains("---")) {
+            val headers = trimmed.split("|").map { it.trim() }.filter { it.isNotEmpty() }
             i += 2 // skip header and separator
             val rows = mutableListOf<List<String>>()
             while (i < lines.size && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
@@ -157,52 +173,217 @@ private fun parseMessageBlocks(rawText: String): List<MessageBlock> {
         }
 
         // 3. Headers (#, ##, ###)
-        if (line.startsWith("### ")) {
-            blocks.add(MessageBlock.Header(3, line.removePrefix("### ").trim()))
+        if (trimmed.startsWith("### ")) {
+            blocks.add(MessageBlock.Header(3, trimmed.removePrefix("### ").trim()))
             i++
             continue
-        } else if (line.startsWith("## ")) {
-            blocks.add(MessageBlock.Header(2, line.removePrefix("## ").trim()))
+        } else if (trimmed.startsWith("## ")) {
+            blocks.add(MessageBlock.Header(2, trimmed.removePrefix("## ").trim()))
             i++
             continue
-        } else if (line.startsWith("# ")) {
-            blocks.add(MessageBlock.Header(1, line.removePrefix("# ").trim()))
+        } else if (trimmed.startsWith("# ")) {
+            blocks.add(MessageBlock.Header(1, trimmed.removePrefix("# ").trim()))
             i++
             continue
         }
 
         // 4. Blockquotes (> )
-        if (line.startsWith("> ")) {
+        if (trimmed.startsWith("> ")) {
             val quoteLines = mutableListOf<String>()
-            while (i < lines.size && lines[i].startsWith("> ")) {
-                quoteLines.add(lines[i].removePrefix("> ").trim())
+            while (i < lines.size && lines[i].trim().startsWith("> ")) {
+                quoteLines.add(lines[i].trim().removePrefix("> ").trim())
                 i++
             }
             blocks.add(MessageBlock.BlockQuote(quoteLines.joinToString(" ")))
             continue
         }
 
-        // 5. Standard text / paragraph
-        val textLines = mutableListOf<String>()
-        while (i < lines.size &&
-            !lines[i].trimStart().startsWith("```") &&
-            !lines[i].startsWith("# ") &&
-            !lines[i].startsWith("## ") &&
-            !lines[i].startsWith("### ") &&
-            !lines[i].startsWith("> ") &&
-            !(lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|") && i + 1 < lines.size && lines[i + 1].contains("---"))
-        ) {
-            textLines.add(lines[i])
+        // 5. Bullet List (- , * , • )
+        if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("• ")) {
+            val listItems = mutableListOf<String>()
+            while (i < lines.size) {
+                val cur = lines[i].trim()
+                if (cur.startsWith("- ") || cur.startsWith("* ") || cur.startsWith("• ")) {
+                    val bulletText = cur.replaceFirst(Regex("^[-*•]\\s+"), "")
+                    listItems.add(bulletText)
+                    i++
+                } else if (cur.isNotEmpty() && listItems.isNotEmpty() && !cur.startsWith("#") && !cur.startsWith("```")) {
+                    // Contained sub-line
+                    val last = listItems.removeAt(listItems.lastIndex)
+                    listItems.add("$last $cur")
+                    i++
+                } else {
+                    break
+                }
+            }
+            blocks.add(MessageBlock.BulletList(listItems))
+            continue
+        }
+
+        // 6. Numbered List (1. , 2. )
+        val numMatch = Regex("^(\\d+)\\.\\s+(.*)").find(trimmed)
+        if (numMatch != null) {
+            val numberedItems = mutableListOf<Pair<Int, String>>()
+            while (i < lines.size) {
+                val cur = lines[i].trim()
+                val curMatch = Regex("^(\\d+)\\.\\s+(.*)").find(cur)
+                if (curMatch != null) {
+                    val num = curMatch.groupValues[1].toIntOrNull() ?: (numberedItems.size + 1)
+                    val text = curMatch.groupValues[2]
+                    numberedItems.add(Pair(num, text))
+                    i++
+                } else if (cur.isNotEmpty() && numberedItems.isNotEmpty() && !cur.startsWith("#") && !cur.startsWith("```")) {
+                    val last = numberedItems.removeAt(numberedItems.lastIndex)
+                    numberedItems.add(Pair(last.first, "${last.second} $cur"))
+                    i++
+                } else {
+                    break
+                }
+            }
+            blocks.add(MessageBlock.NumberedList(numberedItems))
+            continue
+        }
+
+        // 7. Regular Paragraph
+        val paraLines = mutableListOf<String>()
+        while (i < lines.size) {
+            val cur = lines[i]
+            val curTrim = cur.trim()
+            if (curTrim.isEmpty() ||
+                curTrim.startsWith("```") ||
+                curTrim.startsWith("#") ||
+                curTrim.startsWith("> ") ||
+                curTrim.startsWith("- ") ||
+                curTrim.startsWith("* ") ||
+                curTrim.startsWith("• ") ||
+                Regex("^(\\d+)\\.\\s+").containsMatchIn(curTrim) ||
+                (curTrim.startsWith("|") && curTrim.endsWith("|"))
+            ) {
+                break
+            }
+            paraLines.add(cur)
             i++
         }
 
-        val textContent = textLines.joinToString("\n").trim()
-        if (textContent.isNotEmpty()) {
-            blocks.add(MessageBlock.FormattedText(textContent))
+        val fullPara = paraLines.joinToString("\n").trim()
+        if (fullPara.isNotEmpty()) {
+            blocks.add(MessageBlock.FormattedParagraph(fullPara))
         }
     }
 
-    return blocks.ifEmpty { listOf(MessageBlock.FormattedText(rawText)) }
+    return blocks.ifEmpty { listOf(MessageBlock.FormattedParagraph(rawText)) }
+}
+
+@Composable
+private fun HeaderBlockView(level: Int, text: String) {
+    val annotated = remember(text) { formatMarkdownInline(text) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = if (level == 1) 8.dp else 4.dp, bottom = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(if (level == 1) 14.dp else 10.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+            Text(
+                text = annotated,
+                style = when (level) {
+                    1 -> MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, letterSpacing = 0.2.sp)
+                    2 -> MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    else -> MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                },
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (level == 1) {
+            HorizontalDivider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BulletListView(items: List<String>, textColor: Color) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        items.forEach { item ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 7.dp)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                val annotated = remember(item) { formatMarkdownInline(item) }
+                Text(
+                    text = annotated,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                    color = textColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NumberedListView(items: List<Pair<Int, String>>, textColor: Color) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items.forEach { (num, text) ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Text(
+                        text = "$num",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                val annotated = remember(text) { formatMarkdownInline(text) }
+                Text(
+                    text = annotated,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                    color = textColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -216,18 +397,18 @@ fun CodeBlockView(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1E1E1E),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
+        color = Color(0xFF141922),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF263242)),
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
         Column {
-            // Header bar with language badge and copy action
+            // Header bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF2D2D2D))
+                    .background(Color(0xFF1D2430))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -239,7 +420,7 @@ fun CodeBlockView(
                     Icon(
                         imageVector = Icons.Default.Code,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = Color(0xFF64B5F6),
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
@@ -247,9 +428,20 @@ fun CodeBlockView(
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFD4D4D4),
+                        color = Color(0xFF90CAF9),
                         fontSize = 11.sp
                     )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0x33FFFFFF)
+                    ) {
+                        Text(
+                            text = "${code.lines().size} lines",
+                            fontSize = 9.sp,
+                            color = Color(0xFFB0BEC5),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
                 }
 
                 Row(
@@ -280,22 +472,36 @@ fun CodeBlockView(
                 }
             }
 
-            // Code Content
+            // Code Content with Line Numbers
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
                     .padding(12.dp)
             ) {
-                Text(
-                    text = code,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
-                    ),
-                    color = Color(0xFFDCDCAA)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val lineCount = code.lines().size
+                    val lineNumStr = (1..lineCount).joinToString("\n")
+                    Text(
+                        text = lineNumStr,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        ),
+                        color = Color(0xFF546E7A)
+                    )
+
+                    Text(
+                        text = code,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        ),
+                        color = Color(0xFFE0E0E0)
+                    )
+                }
             }
         }
     }
@@ -311,8 +517,8 @@ fun JsonBlockView(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1E222B),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E3846)),
+        color = Color(0xFF161B22),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D)),
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
@@ -321,7 +527,7 @@ fun JsonBlockView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF262C38))
+                    .background(Color(0xFF21262D))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -333,15 +539,15 @@ fun JsonBlockView(
                     Icon(
                         imageVector = Icons.Default.DataObject,
                         contentDescription = null,
-                        tint = Color(0xFF79C0FF),
+                        tint = Color(0xFF58A6FF),
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "JSON STRUCTURE",
+                        text = "JSON DATA",
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF79C0FF),
+                        color = Color(0xFF58A6FF),
                         fontSize = 11.sp
                     )
                 }
@@ -387,7 +593,7 @@ fun JsonBlockView(
                         fontSize = 12.sp,
                         lineHeight = 18.sp
                     ),
-                    color = Color(0xFF9CDCFE)
+                    color = Color(0xFF7EE787)
                 )
             }
         }
@@ -416,7 +622,7 @@ fun TableView(
             // Headers
             Row(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 headers.forEach { header ->
@@ -432,11 +638,11 @@ fun TableView(
                 }
             }
 
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             // Rows
             rows.forEachIndexed { index, row ->
-                val bg = if (index % 2 == 0) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                val bg = if (index % 2 == 0) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 Row(
                     modifier = Modifier
                         .background(bg)
@@ -547,9 +753,10 @@ fun BlockQuoteView(
                     .height(24.dp)
                     .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
             )
+            val annotated = remember(text) { formatMarkdownInline(text) }
             Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                text = annotated,
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic, lineHeight = 18.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -557,24 +764,24 @@ fun BlockQuoteView(
 }
 
 @Composable
-fun FormattedTextView(
+private fun FormattedParagraphView(
     text: String,
     textColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val annotated = remember(text) { formatMarkdownText(text) }
+    val annotated = remember(text) { formatMarkdownInline(text) }
     Text(
         text = annotated,
-        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, letterSpacing = 0.1.sp),
         color = textColor,
         modifier = modifier
     )
 }
 
 /**
- * Converts inline bold (**), italic (*), and inline code (`) into AnnotatedString.
+ * High-performance parser that converts inline bold (**), italic (*), and inline code (`) into AnnotatedString.
  */
-private fun formatMarkdownText(input: String): androidx.compose.ui.text.AnnotatedString {
+fun formatMarkdownInline(input: String): androidx.compose.ui.text.AnnotatedString {
     return buildAnnotatedString {
         var cursor = 0
         val length = input.length
@@ -601,7 +808,8 @@ private fun formatMarkdownText(input: String): androidx.compose.ui.text.Annotate
                     withStyle(
                         SpanStyle(
                             fontFamily = FontFamily.Monospace,
-                            background = Color(0x22888888),
+                            background = Color(0x1F7986CB),
+                            color = Color(0xFF1565C0),
                             fontWeight = FontWeight.SemiBold
                         )
                     ) {
@@ -610,15 +818,6 @@ private fun formatMarkdownText(input: String): androidx.compose.ui.text.Annotate
                     cursor = end + 1
                     continue
                 }
-            }
-
-            // Bullet Point replacement
-            if ((cursor == 0 || input[cursor - 1] == '\n') && (input.startsWith("• ", cursor) || input.startsWith("- ", cursor) || input.startsWith("* ", cursor))) {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF1A73E8))) {
-                    append(" • ")
-                }
-                cursor += 2
-                continue
             }
 
             append(input[cursor])

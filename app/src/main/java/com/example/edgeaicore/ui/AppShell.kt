@@ -31,7 +31,6 @@ import com.example.edgeaicore.ui.common.UniversalExplanationSheet
 import com.example.edgeaicore.ui.console.ChatConsoleFullScreen
 import com.example.edgeaicore.ui.document.DocumentIntelligenceScreen
 import com.example.edgeaicore.ui.home.HomeScreen
-import com.example.edgeaicore.ui.memory.AskMemoryScreen
 import com.example.edgeaicore.ui.memory.MemoryDetailSheet
 import com.example.edgeaicore.ui.memory.MemoryScreen
 import com.example.edgeaicore.ui.models.ModelCenterScreen
@@ -82,6 +81,12 @@ fun AppShell(
     var activeExplanation by remember { mutableStateOf<ExplanationRecord?>(null) }
     var showDeveloperModal by remember { mutableStateOf(false) }
     var isChatConsoleOpen by remember { mutableStateOf(false) }
+    var chatConsoleInitialPrompt by remember { mutableStateOf<String?>(null) }
+
+    val openUnifiedConsole: (String?) -> Unit = { prompt ->
+        chatConsoleInitialPrompt = prompt
+        isChatConsoleOpen = true
+    }
 
     var agentInitialGoal by remember { mutableStateOf<String?>(null) }
 
@@ -257,10 +262,10 @@ fun AppShell(
                         if (sub != null) {
                             when (sub) {
                                 is SubDestination.Ask -> {
-                                    AskMemoryScreen(
+                                    ChatConsoleFullScreen(
                                         edgeAI = edgeAI,
-                                        initialQuery = sub.initialPrompt,
-                                        onNavigateBack = { currentSubDestination = null },
+                                        initialPrompt = sub.initialPrompt,
+                                        onClose = { currentSubDestination = null },
                                         onShowExplanation = { activeExplanation = it }
                                     )
                                 }
@@ -306,7 +311,7 @@ fun AppShell(
                                     DocumentIntelligenceScreen(
                                         edgeAI = edgeAI,
                                         onBack = { currentSubDestination = null },
-                                        onNavigateToAsk = { prompt -> currentSubDestination = SubDestination.Ask(prompt) }
+                                        onNavigateToAsk = { prompt -> openUnifiedConsole(prompt) }
                                     )
                                 }
                                 is SubDestination.Benchmark -> {
@@ -319,14 +324,14 @@ fun AppShell(
                                     AudioJournalScreen(
                                         edgeAI = edgeAI,
                                         onBack = { currentSubDestination = null },
-                                        onNavigateToAsk = { prompt -> currentSubDestination = SubDestination.Ask(prompt) }
+                                        onNavigateToAsk = { prompt -> openUnifiedConsole(prompt) }
                                     )
                                 }
                                 is SubDestination.Routines -> {
                                     RoutinesScreen(
                                         edgeAI = edgeAI,
                                         onBack = { currentSubDestination = null },
-                                        onNavigateToAsk = { prompt -> currentSubDestination = SubDestination.Ask(prompt) }
+                                        onNavigateToAsk = { prompt -> openUnifiedConsole(prompt) }
                                     )
                                 }
                                 is SubDestination.ToolPlayground -> {
@@ -341,7 +346,7 @@ fun AppShell(
                                 MainDestination.HOME -> {
                                     HomeScreen(
                                         edgeAI = edgeAI,
-                                        onNavigateToAsk = { prompt -> currentSubDestination = SubDestination.Ask(prompt) },
+                                        onNavigateToAsk = { prompt -> openUnifiedConsole(prompt) },
                                         onNavigateToCapture = { currentSubDestination = SubDestination.Capture },
                                         onNavigateToMemory = { currentMainDestination = MainDestination.MEMORY },
                                         onNavigateToAgent = { goal ->
@@ -360,7 +365,7 @@ fun AppShell(
                                 MainDestination.MEMORY -> {
                                     MemoryScreen(
                                         edgeAI = edgeAI,
-                                        onNavigateToAskMemory = { prompt -> currentSubDestination = SubDestination.Ask(prompt) },
+                                        onNavigateToAskMemory = { prompt -> openUnifiedConsole(prompt) },
                                         onSelectMemory = { memory -> selectedMemoryForDetail = memory }
                                     )
                                 }
@@ -405,7 +410,11 @@ fun AppShell(
     if (isChatConsoleOpen) {
         ChatConsoleFullScreen(
             edgeAI = edgeAI,
-            onClose = { isChatConsoleOpen = false },
+            initialPrompt = chatConsoleInitialPrompt,
+            onClose = {
+                isChatConsoleOpen = false
+                chatConsoleInitialPrompt = null
+            },
             onShowExplanation = { activeExplanation = it }
         )
     }
@@ -418,7 +427,7 @@ fun AppShell(
             onDismiss = { selectedMemoryForDetail = null },
             onAskAIAboutMemory = { prompt ->
                 selectedMemoryForDetail = null
-                currentSubDestination = SubDestination.Ask(prompt)
+                openUnifiedConsole(prompt)
             },
             onMemoryDeleted = {
                 selectedMemoryForDetail = null

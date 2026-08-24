@@ -53,11 +53,24 @@ import com.example.edgeaicore.core.explanation.ExplanationRecord
 import com.example.edgeaicore.core.swayam.ResponseStyle
 import com.example.edgeaicore.core.swayam.SwayamRequest
 import com.example.edgeaicore.ui.common.ResponseActionToolbar
-import com.example.edgeaicore.ui.memory.ChatMessage
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+data class ChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val isUser: Boolean,
+    val timestamp: Long = System.currentTimeMillis(),
+    val provider: AIProviderType = AIProviderType.LOCAL,
+    val confidence: Float = 0.95f,
+    val sourcesUsed: List<String> = emptyList(),
+    val translatedText: String? = null,
+    val activeLanguage: String? = null,
+    val isTranslating: Boolean = false,
+    val explanation: ExplanationRecord? = null
+)
 
 data class ConsoleChatSession(
     val id: String = UUID.randomUUID().toString(),
@@ -68,6 +81,8 @@ data class ConsoleChatSession(
 
 data class SwayamControlConfig(
     val systemPrompt: String = "You are SWAYAM, an on-device sovereign AI operating mind. Provide clear, precise, and well-structured answers with code, tables, and JSON where applicable.",
+    val activePersonaId: String = "master_sovereign_core",
+    val isPersonaChainEnabled: Boolean = false,
     val selectedModel: String = "Gemma 2B (LiteRT-LM Edge)",
     val modelProvider: AIProviderType = AIProviderType.LOCAL,
     val temperature: Float = 0.7f,
@@ -89,6 +104,7 @@ data class SwayamControlConfig(
 @Composable
 fun ChatConsoleFullScreen(
     edgeAI: EdgeAICore,
+    initialPrompt: String? = null,
     onClose: () -> Unit,
     onShowExplanation: (ExplanationRecord) -> Unit,
     modifier: Modifier = Modifier
@@ -102,6 +118,7 @@ fun ChatConsoleFullScreen(
     var inputText by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     var isListeningVoice by remember { mutableStateOf(false) }
+    var hasProcessedInitialPrompt by remember { mutableStateOf(false) }
 
     // Session Management
     val sessions = remember {
@@ -162,6 +179,8 @@ fun ChatConsoleFullScreen(
                     topK = controlConfig.topK,
                     maxTokens = controlConfig.maxTokens,
                     preferredProvider = controlConfig.modelProvider,
+                    forcedPersonaId = controlConfig.activePersonaId,
+                    enablePersonaChain = controlConfig.isPersonaChainEnabled,
                     modelId = when (controlConfig.selectedModel) {
                         "Gemini 2.0 Flash" -> "gemini-2.0-flash"
                         "Gemini 1.5 Pro" -> "gemini-1.5-pro"
@@ -196,6 +215,14 @@ fun ChatConsoleFullScreen(
             }
             isThinking = false
             listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    // Auto-execute or populate initial prompt when navigated with query
+    LaunchedEffect(initialPrompt) {
+        if (!initialPrompt.isNullOrBlank() && !hasProcessedInitialPrompt) {
+            hasProcessedInitialPrompt = true
+            submitQuery(initialPrompt)
         }
     }
 
@@ -577,79 +604,191 @@ private fun ConsoleChatBubble(
     onExport: (text: String) -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalAlignment = if (message.isUser) Alignment.End else Alignment.Start
     ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (message.isUser) 16.dp else 4.dp,
-                bottomEnd = if (message.isUser) 4.dp else 16.dp
-            ),
-            color = if (message.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-            border = if (!message.isUser) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)) else null,
-            modifier = Modifier.widthIn(max = 480.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (message.isTranslating) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                        Text("Translating output...", style = MaterialTheme.typography.bodySmall)
+        if (message.isUser) {
+            // USER MESSAGE BUBBLE
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 48.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.widthIn(max = 480.dp)
+                ) {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        RichMessageContent(
+                            text = message.text,
+                            textColor = MaterialTheme.colorScheme.onPrimary,
+                            isUser = true
+                        )
                     }
-                } else {
-                    val displayText = message.translatedText ?: message.text
-                    RichMessageContent(
-                        text = displayText,
-                        textColor = if (message.isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                        isUser = message.isUser
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "User",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        } else {
+            // AI SOVEREIGN MESSAGE CARD
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 32.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "SWAYAM AI",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
-                // Sources grounding badge
-                if (!message.isUser && message.sourcesUsed.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(
+                    modifier = Modifier.widthIn(max = 520.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = LocalAIGreen.copy(alpha = 0.12f),
-                        modifier = Modifier.padding(top = 4.dp)
+                        shape = RoundedCornerShape(4.dp, 18.dp, 18.dp, 18.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                        shadowElevation = 1.dp
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(Icons.Default.Verified, contentDescription = null, tint = LocalAIGreen, modifier = Modifier.size(12.dp))
-                            Text(
-                                text = "Grounded in: ${message.sourcesUsed.joinToString(", ")}",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 10.sp,
-                                color = LocalAIGreen,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            // AI Model Header Badge
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "SWAYAM Neural Mind",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = LocalAIGreen.copy(alpha = 0.15f)
+                                    ) {
+                                        Text(
+                                            text = if (message.provider == AIProviderType.LOCAL) "100% ON-DEVICE" else "CLOUD GEMINI",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = LocalAIGreen,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = "${(message.confidence * 100).toInt()}% match",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp
+                                )
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                            if (message.isTranslating) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Text("Translating output...", style = MaterialTheme.typography.bodySmall)
+                                }
+                            } else {
+                                val displayText = message.translatedText ?: message.text
+                                RichMessageContent(
+                                    text = displayText,
+                                    textColor = MaterialTheme.colorScheme.onSurface,
+                                    isUser = false
+                                )
+                            }
+
+                            // Sources grounding badge
+                            if (message.sourcesUsed.isNotEmpty()) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = LocalAIGreen.copy(alpha = 0.12f),
+                                    border = BorderStroke(1.dp, LocalAIGreen.copy(alpha = 0.3f)),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Verified, contentDescription = null, tint = LocalAIGreen, modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "Grounded in: ${message.sourcesUsed.joinToString(", ")}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 11.sp,
+                                            color = LocalAIGreen,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
+
+                    // Action Toolbar
+                    ResponseActionToolbar(
+                        responseText = message.text,
+                        translatedText = message.translatedText,
+                        activeLanguage = message.activeLanguage,
+                        onTranslate = onTranslate,
+                        onRevertTranslation = onRevertTranslation,
+                        onRegenerate = onRegenerate,
+                        onExport = onExport,
+                        explanation = message.explanation,
+                        onShowExplanation = onShowExplanation,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
-        }
-
-        // Output tools set for AI responses
-        if (!message.isUser) {
-            Spacer(modifier = Modifier.height(4.dp))
-            ResponseActionToolbar(
-                responseText = message.text,
-                translatedText = message.translatedText,
-                activeLanguage = message.activeLanguage,
-                onTranslate = onTranslate,
-                onRevertTranslation = onRevertTranslation,
-                onRegenerate = onRegenerate,
-                onExport = onExport,
-                explanation = message.explanation,
-                onShowExplanation = onShowExplanation,
-                modifier = Modifier.widthIn(max = 480.dp)
-            )
         }
     }
 }
@@ -827,26 +966,49 @@ private fun SwayamControlDrawerContent(
 
         HorizontalDivider()
 
-        // 3. SYSTEM PROMPT & PERSONA
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 3. SYSTEM PROMPT & PERSONA CHAIN
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "PERSONAS & CHAIN ⛓️💥",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp
+                )
+                FilterChip(
+                    selected = config.isPersonaChainEnabled,
+                    onClick = { onConfigChange(config.copy(isPersonaChainEnabled = !config.isPersonaChainEnabled)) },
+                    label = { Text("Chain Mode ⛓️", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+
             Text(
-                text = "SYSTEM PROMPT & PERSONA",
+                text = "Select an active persona or enable dynamic chaining across sub-systems & tools:",
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.sp
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(listOf(
-                    Pair("Sovereign Core", "You are SWAYAM, an on-device sovereign AI operating mind. Provide clear, concise answers."),
-                    Pair("Code Architect", "You are an expert software architect. Provide clean code snippets in Kotlin/JSON with syntax highlights."),
-                    Pair("Deep Researcher", "You are a research scientist. Provide detailed, analytical, citation-backed explanations.")
-                )) { (presetName, presetPrompt) ->
+                items(com.example.edgeaicore.core.swayam.SwayamPersonaRegistry.allPersonas) { p ->
+                    val isSelected = config.activePersonaId == p.id
                     FilterChip(
-                        selected = config.systemPrompt == presetPrompt,
-                        onClick = { onConfigChange(config.copy(systemPrompt = presetPrompt)) },
-                        label = { Text(presetName, fontSize = 10.sp) },
+                        selected = isSelected,
+                        onClick = {
+                            onConfigChange(
+                                config.copy(
+                                    activePersonaId = p.id,
+                                    systemPrompt = p.systemPrompt,
+                                    temperature = p.defaultTemperature
+                                )
+                            )
+                        },
+                        label = { Text("${p.emoji} ${p.name}", fontSize = 10.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         shape = RoundedCornerShape(8.dp)
                     )
                 }
