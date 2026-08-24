@@ -1,44 +1,89 @@
-name: Build Android APK and AAB
+name: Android CI
 
 on:
-  push:
-    branches: [ "main" ]
+
+  pull_request:
+    branches:
+      - main
+      - master
+
   workflow_dispatch:
 
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+
+  android_check:
+
+    name: Android Quality Check
+
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      # =========================================================
+      # 1. GET PROJECT
+      # =========================================================
 
-    - name: Find and setup gradlew
-      run: find . -name "gradlew" -exec chmod +x {} + || true
+      - name: Checkout Repository
+        uses: actions/checkout@v6
 
-    - name: Generate dummy debug keystore
-      run: keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
 
-    - name: Build Debug APK and AAB
-      run: |
-        if [ -f "gradlew" ]; then
-          ./gradlew assembleDebug bundleDebug
-        elif [ -d "android" ] && [ -f "android/gradlew" ]; then
-          cd android && ./gradlew assembleDebug bundleDebug
-        else
-          gradle assembleDebug bundleDebug
-        fi
+      # =========================================================
+      # 2. JAVA
+      # =========================================================
 
-    - name: Upload APK and AAB
-      uses: actions/upload-artifact@v4
-      with:
-        name: SWAYAM-GPT
-        path: |
-          **/*.apk
-          **/*.aab
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+
+      # =========================================================
+      # 3. GRADLE
+      # =========================================================
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+
+      # =========================================================
+      # 4. GRADLE PERMISSION
+      # =========================================================
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+
+      # =========================================================
+      # 5. LINT
+      # =========================================================
+
+      - name: Run Android Lint
+        run: |
+          ./gradlew lint --no-daemon
+
+
+      # =========================================================
+      # 6. UNIT TESTS
+      # =========================================================
+
+      - name: Run Unit Tests
+        run: |
+          ./gradlew test --no-daemon
+
+
+      # =========================================================
+      # 7. VERIFY APPLICATION BUILDS
+      # =========================================================
+
+      - name: Verify Debug Build
+        run: |
+          ./gradlew assembleDebug --no-daemon
