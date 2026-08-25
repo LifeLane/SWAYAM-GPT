@@ -84,12 +84,28 @@ class DeviceCapabilityManager(private val context: Context) {
         val memInfo = ActivityManager.MemoryInfo()
         actManager?.getMemoryInfo(memInfo)
 
-        val totalRamMb = memInfo.totalMem / (1024 * 1024)
-        val availableRamMb = memInfo.availMem / (1024 * 1024)
+        val totalRamMb = (memInfo.totalMem / (1024 * 1024)).let { if (it > 0) it else 4096L }
+        val availableRamMb = (memInfo.availMem / (1024 * 1024)).let { if (it > 0) it else 2048L }
 
-        val stat = StatFs(Environment.getDataDirectory().path)
-        val totalStorageGb = (stat.blockCountLong * stat.blockSizeLong) / (1024.0 * 1024.0 * 1024.0)
-        val availableStorageGb = (stat.availableBlocksLong * stat.blockSizeLong) / (1024.0 * 1024.0 * 1024.0)
+        val availableStorageGb = try {
+            val freeBytes = context.filesDir.freeSpace
+            if (freeBytes > 0) {
+                freeBytes / (1024.0 * 1024.0 * 1024.0)
+            } else {
+                val stat = StatFs(Environment.getDataDirectory().path)
+                val bytes = stat.availableBlocksLong * stat.blockSizeLong
+                if (bytes > 0) bytes / (1024.0 * 1024.0 * 1024.0) else 16.0
+            }
+        } catch (_: Exception) {
+            16.0
+        }
+
+        val totalStorageGb = try {
+            val totalBytes = context.filesDir.totalSpace
+            if (totalBytes > 0) totalBytes / (1024.0 * 1024.0 * 1024.0) else 64.0
+        } catch (_: Exception) {
+            64.0
+        }
 
         val cpuCores = getNumberOfCores()
         val hasNpu = detectNpuSupport()

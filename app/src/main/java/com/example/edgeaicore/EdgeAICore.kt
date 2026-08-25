@@ -97,6 +97,12 @@ class EdgeAICore private constructor(val context: Context) {
     internal val modelManager = LocalModelManager(context)
     internal val liteRTEngine = LiteRTEngine(context)
     internal val liteRTLMEngine = LiteRTLMEngine(context)
+    internal val modelProvisioningManager = com.example.edgeaicore.core.models.ModelProvisioningManager(
+        context = context,
+        modelManager = modelManager,
+        liteRTLMEngine = liteRTLMEngine,
+        deviceCapabilityManager = deviceCapManager
+    )
     internal val mediaPipeEngine = MediaPipeEngine(context)
     internal val visionPipeline = VisionPipeline(context, mediaPipeEngine, liteRTEngine)
     internal val embeddingEngine = EmbeddingEngine(context, LocalEmbeddingProvider())
@@ -208,6 +214,7 @@ class EdgeAICore private constructor(val context: Context) {
     )
 
     // Subsystems
+    val provisioning: com.example.edgeaicore.core.models.ModelProvisioningManager get() = modelProvisioningManager
     val swayam = SwayamSubsystem()
     val diagnostics = DiagnosticsSubsystem()
     val models = ModelsSubsystem()
@@ -388,6 +395,8 @@ class EdgeAICore private constructor(val context: Context) {
 
     inner class ModelsSubsystem {
         val list = modelManager.models
+        val provisioning: com.example.edgeaicore.core.models.ModelProvisioningManager get() = modelProvisioningManager
+        val provisioningProgress get() = modelProvisioningManager.progress
         suspend fun install(modelId: String, onProgress: (Float) -> Unit = {}): EdgeResult<EdgeModel> =
             modelManager.installModel(modelId, onProgress)
         fun remove(modelId: String) = modelManager.removeModel(modelId)

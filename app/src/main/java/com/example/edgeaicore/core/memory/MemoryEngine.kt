@@ -118,7 +118,7 @@ class MemoryEngine(
             context.applicationContext,
             EdgeMemoryDatabase::class.java,
             "edge_ai_memories.db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        ).build()
     }
 
     val memoryDao: MemoryDao by lazy { database.memoryDao() }
@@ -134,6 +134,10 @@ class MemoryEngine(
         list.map { decryptMemory(it) }.filter {
             q.isBlank() || it.title.contains(q, true) || it.content.contains(q, true) || it.tags.contains(q, true)
         }
+    }
+
+    suspend fun getMemoryById(id: Long): MemoryEntity? = withContext(Dispatchers.IO) {
+        memoryDao.getMemoryById(id)?.let { decryptMemory(it) }
     }
 
     fun getFavoriteMemories(): Flow<List<MemoryEntity>> = memoryDao.getFavoriteMemories().map { list ->
@@ -221,6 +225,20 @@ class MemoryEngine(
 
     suspend fun deleteMemory(memory: MemoryEntity) = withContext(Dispatchers.IO) {
         memoryDao.deleteMemory(memory)
+    }
+
+    suspend fun deleteMemory(id: Long) = withContext(Dispatchers.IO) {
+        val mem = memoryDao.getMemoryById(id)
+        if (mem != null) {
+            memoryDao.deleteMemory(mem)
+        }
+    }
+
+    suspend fun deleteMemory(id: String) = withContext(Dispatchers.IO) {
+        val longId = id.toLongOrNull()
+        if (longId != null) {
+            deleteMemory(longId)
+        }
     }
 
     suspend fun toggleFavorite(memory: MemoryEntity) = withContext(Dispatchers.IO) {

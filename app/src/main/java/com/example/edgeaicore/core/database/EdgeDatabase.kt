@@ -140,6 +140,58 @@ abstract class EdgeDatabase : RoomDatabase() {
             }
         }
 
+        // Non-destructive Migration v2 -> v3
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `knowledge_chunks` (
+                        `chunkId` TEXT NOT NULL PRIMARY KEY,
+                        `documentId` TEXT NOT NULL,
+                        `chunkIndex` INTEGER NOT NULL,
+                        `text` TEXT NOT NULL,
+                        `pageNumber` INTEGER NOT NULL,
+                        `positionStart` INTEGER NOT NULL,
+                        `positionEnd` INTEGER NOT NULL,
+                        `embeddingReference` TEXT,
+                        `metadataJson` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `embeddings` (
+                        `embeddingId` TEXT NOT NULL PRIMARY KEY,
+                        `sourceId` TEXT NOT NULL,
+                        `sourceType` TEXT NOT NULL,
+                        `modelId` TEXT NOT NULL,
+                        `dimension` INTEGER NOT NULL,
+                        `vectorJson` TEXT NOT NULL,
+                        `contentHash` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `agent_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `sessionId` TEXT,
+                        `agentName` TEXT NOT NULL,
+                        `level` TEXT NOT NULL,
+                        `tag` TEXT NOT NULL,
+                        `message` TEXT NOT NULL,
+                        `metadataJson` TEXT,
+                        `latencyMs` INTEGER NOT NULL,
+                        `tokenCount` INTEGER NOT NULL,
+                        `privacyLevel` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): EdgeDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -147,8 +199,7 @@ abstract class EdgeDatabase : RoomDatabase() {
                     EdgeDatabase::class.java,
                     DB_NAME
                 )
-                    .addMigrations(MIGRATION_1_2)
-                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance

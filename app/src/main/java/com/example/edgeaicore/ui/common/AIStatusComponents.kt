@@ -603,12 +603,14 @@ fun UniversalExplanationSheet(
                             ) {
                                 ExplainRow("WHAT HAPPENED", record.whatHappened)
                                 ExplainRow("WHY THIS ACTION", record.whyReason)
+                                ExplainRow("MODEL", record.modelName)
+                                ExplainRow("RUNTIME & ENGINE", "${record.runtimeEngine} (${record.executionBackend.name})")
                                 ExplainRow(
-                                    "AI REASONING CORE",
+                                    "PROVIDER",
                                     when (record.providerType) {
-                                        AIProviderType.LOCAL -> "SWAYAM Core (On-Device LiteRT-LM & NPU Engine)"
+                                        AIProviderType.LOCAL -> "SWAYAM Core (Local On-Device Runtime)"
                                         AIProviderType.PRIVATE_SERVER -> "Private LAN AI Server (Air-Gapped)"
-                                        AIProviderType.CLOUD -> "Gemini Intelligence Core (User Authorized)"
+                                        AIProviderType.CLOUD -> "Cloud Intelligence Provider (User Authorized)"
                                         AIProviderType.DEMO -> "On-Device Neural Synthesizer"
                                     }
                                 )
@@ -624,7 +626,7 @@ fun UniversalExplanationSheet(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Neural Confidence", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text("Neural Grounding Confidence", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                     Text("${(record.confidenceScore * 100).toInt()}%", fontWeight = FontWeight.ExtraBold, color = LocalAIGreen)
                                 }
                                 LinearProgressIndicator(
@@ -642,9 +644,20 @@ fun UniversalExplanationSheet(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    MetricChip(label = "Latency", value = "< 42 ms", modifier = Modifier.weight(1f))
-                                    MetricChip(label = "Inference Speed", value = "24.5 t/s", modifier = Modifier.weight(1f))
-                                    MetricChip(label = "Thermals", value = "34°C Normal", modifier = Modifier.weight(1f))
+                                    val latText = if (record.latencyMs > 0) "${record.latencyMs} ms" else "Unavailable"
+                                    val tpsText = if (record.tokensPerSecond > 0) String.format("%.1f t/s", record.tokensPerSecond) else if (record.tokensGenerated > 0 && record.latencyMs > 0) String.format("%.1f t/s", record.tokensGenerated.toDouble() / (record.latencyMs / 1000.0)) else "Unavailable"
+                                    val netText = if (record.networkUsed) "Online egress" else "0 Bytes (Offline Local)"
+
+                                    MetricChip(label = "Latency", value = latText, modifier = Modifier.weight(1f))
+                                    MetricChip(label = "Inference Speed", value = tpsText, modifier = Modifier.weight(1f))
+                                    MetricChip(label = "Network Egress", value = netText, modifier = Modifier.weight(1f))
+                                }
+
+                                if (record.toolsUsed.isNotEmpty()) {
+                                    ExplainRow("TOOLS INVOKED", record.toolsUsed.joinToString(", "))
+                                }
+                                if (record.agentsUsed.isNotEmpty()) {
+                                    ExplainRow("AGENTS INVOLVED", record.agentsUsed.joinToString(", "))
                                 }
                             }
                         }
@@ -653,22 +666,30 @@ fun UniversalExplanationSheet(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                val memoryList = if (record.memoriesUsed.isNotEmpty()) {
+                                    record.memoriesUsed.joinToString(" • ")
+                                } else {
+                                    "No memories accessed"
+                                }
+                                ExplainRow("MEMORY CONTEXT", memoryList)
+
+                                val ragList = if (record.ragSources.isNotEmpty()) {
+                                    record.ragSources.joinToString(" • ")
+                                } else if (record.dataSourcesUsed.isNotEmpty()) {
+                                    record.dataSourcesUsed.joinToString(" • ")
+                                } else {
+                                    "Direct on-device generation"
+                                }
+                                ExplainRow("RAG & DOCUMENT SOURCES", ragList)
+
                                 ExplainRow(
-                                    "DATA SOURCES USED",
-                                    record.dataSourcesUsed.ifEmpty { listOf("Personal Encrypted SQLite Vault & Local Context") }.joinToString(" • ")
-                                )
-                                ExplainRow(
-                                    "CLOUD EGRESS AUDIT",
+                                    "DATA PRIVACY & NETWORK",
                                     when (record.privacyLevel) {
-                                        PrivacyLevel.LOCAL_ONLY -> "0 Bytes Egress • Strictly 100% On-Device"
-                                        PrivacyLevel.PRIVATE -> "0 Bytes Cloud • Local Encrypted Sandbox"
-                                        PrivacyLevel.SENSITIVE -> "LAN mTLS Encrypted Tunnel"
-                                        PrivacyLevel.PUBLIC -> "Grounded Cloud Engine"
+                                        PrivacyLevel.LOCAL_ONLY -> "100% Sovereign On-Device (0 Network Bytes)"
+                                        PrivacyLevel.PRIVATE -> "Local Encrypted Sandbox (No External Egress)"
+                                        PrivacyLevel.SENSITIVE -> "LAN Encrypted Tunnel"
+                                        PrivacyLevel.PUBLIC -> if (record.networkUsed) "User-Authorized Cloud API" else "100% On-Device"
                                     }
-                                )
-                                ExplainRow(
-                                    "INTEGRITY STATUS",
-                                    if (record.confidenceScore >= 0.9f) "Verified Grounded (Zero Hallucination Tolerance)" else "Vector Cosine Heuristic (Semantic Recall)"
                                 )
                             }
                         }

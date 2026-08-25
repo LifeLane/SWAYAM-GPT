@@ -393,6 +393,9 @@ interface EmbeddingDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEmbedding(embedding: EmbeddingEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(embeddings: List<EmbeddingEntity>)
+
     @Query("DELETE FROM embeddings WHERE sourceId = :sourceId")
     suspend fun deleteEmbeddingsForSource(sourceId: String)
 

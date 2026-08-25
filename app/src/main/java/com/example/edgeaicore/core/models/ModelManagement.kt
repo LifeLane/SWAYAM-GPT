@@ -32,10 +32,12 @@ enum class ModelType {
 
 enum class ModelStatus {
     NOT_INSTALLED,
-    DOWNLOADING,
+    VERIFYING,
     INSTALLED,
-    LOADED,
-    ERROR
+    LOADING,
+    READY,
+    ERROR,
+    UNLOADED
 }
 
 data class EdgeModel(
@@ -76,9 +78,10 @@ object ModelRegistry {
             downloadUrl = "https://huggingface.co/google/gemma-2b-it-litert-int4",
             checksum = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             license = "Gemma Terms of Use",
-            isInstalled = true,
-            isEnabled = true,
-            status = ModelStatus.INSTALLED
+            isInstalled = false,
+            isEnabled = false,
+            localPath = null,
+            status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
             id = "all-minilm-l6-v2-embedding",
@@ -92,9 +95,10 @@ object ModelRegistry {
             downloadUrl = "https://storage.googleapis.com/edge-ai-models/embeddings/minilm-l6-v2.tflite",
             checksum = "sha256:88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",
             license = "Apache-2.0",
-            isInstalled = true,
-            isEnabled = true,
-            status = ModelStatus.INSTALLED
+            isInstalled = false,
+            isEnabled = false,
+            localPath = null,
+            status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
             id = "mediapipe-pose-landmarker",
@@ -108,9 +112,10 @@ object ModelRegistry {
             downloadUrl = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task",
             checksum = "sha256:2d1847e45ff40cbffbfec3bc9dc7bcfc99859f7ec9e3150bf4bb904ef23db98f",
             license = "Apache-2.0",
-            isInstalled = true,
-            isEnabled = true,
-            status = ModelStatus.INSTALLED
+            isInstalled = false,
+            isEnabled = false,
+            localPath = null,
+            status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
             id = "mediapipe-hand-landmarker",
@@ -124,9 +129,10 @@ object ModelRegistry {
             downloadUrl = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
             checksum = "sha256:3a73c1c73a628867a57a1ef2480689b14736f890e0b35fbdb39e5ee6deebf456",
             license = "Apache-2.0",
-            isInstalled = true,
-            isEnabled = true,
-            status = ModelStatus.INSTALLED
+            isInstalled = false,
+            isEnabled = false,
+            localPath = null,
+            status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
             id = "mediapipe-face-landmarker",
@@ -140,9 +146,10 @@ object ModelRegistry {
             downloadUrl = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
             checksum = "sha256:4a8b417c46f491c3905cf4db8f59d5dc01a7509c256034177d132a265e317c2f",
             license = "Apache-2.0",
-            isInstalled = true,
-            isEnabled = true,
-            status = ModelStatus.INSTALLED
+            isInstalled = false,
+            isEnabled = false,
+            localPath = null,
+            status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
             id = "efficientdet-lite0-object",
@@ -156,9 +163,10 @@ object ModelRegistry {
             downloadUrl = "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/latest/efficientdet_lite0.tflite",
             checksum = "sha256:5b8e426fc36573e04cf4c136329e46a78241e3d489b4f2c050efb042971bb890",
             license = "Apache-2.0",
-            isInstalled = true,
-            isEnabled = true,
-            status = ModelStatus.INSTALLED
+            isInstalled = false,
+            isEnabled = false,
+            localPath = null,
+            status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
             id = "mobilenet-v4-classifier",
@@ -174,6 +182,7 @@ object ModelRegistry {
             license = "Apache-2.0",
             isInstalled = false,
             isEnabled = false,
+            localPath = null,
             status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
@@ -190,6 +199,7 @@ object ModelRegistry {
             license = "Apache-2.0",
             isInstalled = false,
             isEnabled = false,
+            localPath = null,
             status = ModelStatus.NOT_INSTALLED
         ),
         EdgeModel(
@@ -206,6 +216,7 @@ object ModelRegistry {
             license = "Gemma Terms of Use",
             isInstalled = false,
             isEnabled = false,
+            localPath = null,
             status = ModelStatus.NOT_INSTALLED
         )
     )
@@ -222,6 +233,44 @@ class LocalModelManager(private val context: Context) {
         File(context.filesDir, "edge_models").apply { if (!exists()) mkdirs() }
     }
 
+    init {
+        scanAndVerifyInstalledModels()
+    }
+
+    fun scanAndVerifyInstalledModels() {
+        val currentList = _models.value.toMutableList()
+        val updatedList = currentList.map { model ->
+            val binFile = File(modelsDirectory, "${model.id}.bin")
+            val tfliteFile = File(modelsDirectory, "${model.id}.tflite")
+            val taskFile = File(modelsDirectory, "${model.id}.task")
+            val existingFile = when {
+                binFile.exists() && binFile.length() > 0 -> binFile
+                tfliteFile.exists() && tfliteFile.length() > 0 -> tfliteFile
+                taskFile.exists() && taskFile.length() > 0 -> taskFile
+                else -> null
+            }
+            if (existingFile != null && verifyModelArtifact(existingFile)) {
+                model.copy(
+                    isInstalled = true,
+                    isEnabled = true,
+                    localPath = existingFile.absolutePath,
+                    status = ModelStatus.INSTALLED
+                )
+            } else {
+                model.copy(
+                    isInstalled = false,
+                    localPath = null,
+                    status = ModelStatus.NOT_INSTALLED
+                )
+            }
+        }
+        _models.value = updatedList
+    }
+
+    fun verifyModelArtifact(file: File): Boolean {
+        return file.exists() && file.length() > 0 && file.canRead()
+    }
+
     fun getInstalledModels(): List<EdgeModel> {
         return _models.value.filter { it.isInstalled && it.isEnabled }
     }
@@ -231,7 +280,10 @@ class LocalModelManager(private val context: Context) {
     }
 
     fun isInstalled(modelId: String): Boolean {
-        return _models.value.firstOrNull { it.id == modelId }?.isInstalled == true
+        val model = getModelInfo(modelId) ?: return false
+        if (!model.isInstalled || model.localPath.isNullOrBlank()) return false
+        val file = File(model.localPath)
+        return verifyModelArtifact(file)
     }
 
     fun estimateMemoryRequirement(modelIds: List<String>): Long {
@@ -243,33 +295,31 @@ class LocalModelManager(private val context: Context) {
     suspend fun installModel(modelId: String, onProgress: (Float) -> Unit = {}): EdgeResult<EdgeModel> {
         val model = getModelInfo(modelId) ?: return EdgeResult.Failure(EdgeAIError.ModelUnavailable(modelId))
         
-        // Update state to downloading
-        updateModelStatus(modelId, ModelStatus.DOWNLOADING, 0.1f)
+        updateModelStatus(modelId, ModelStatus.VERIFYING, 0.1f)
         onProgress(0.1f)
 
         try {
-            // Simulated verified on-device download/unpack sequence
-            onProgress(0.5f)
-            updateModelStatus(modelId, ModelStatus.DOWNLOADING, 0.5f)
-            
             val targetFile = File(modelsDirectory, "${model.id}.bin")
-            if (!targetFile.exists()) {
-                targetFile.writeText("LITERT_MODEL_BINARY_HEADER_${model.id}_${model.version}")
+            if (targetFile.exists() && verifyModelArtifact(targetFile)) {
+                val updated = model.copy(
+                    isInstalled = true,
+                    isEnabled = true,
+                    localPath = targetFile.absolutePath,
+                    status = ModelStatus.INSTALLED,
+                    downloadProgress = 1.0f
+                )
+                updateModelInList(updated)
+                onProgress(1.0f)
+                return EdgeResult.Success(updated)
             }
-            
-            onProgress(1.0f)
-            val updated = model.copy(
-                isInstalled = true,
-                isEnabled = true,
-                localPath = targetFile.absolutePath,
-                status = ModelStatus.INSTALLED,
-                downloadProgress = 1.0f
+
+            updateModelStatus(modelId, ModelStatus.ERROR, 0f)
+            return EdgeResult.Failure(
+                EdgeAIError.ModelUnavailable("Model artifact '$modelId' is not present in local storage. Please import the verified model binary to complete installation.")
             )
-            updateModelInList(updated)
-            return EdgeResult.Success(updated)
         } catch (e: Exception) {
             updateModelStatus(modelId, ModelStatus.ERROR, 0f)
-            return EdgeResult.Failure(EdgeAIError.Unknown("Failed to install model $modelId", e))
+            return EdgeResult.Failure(EdgeAIError.Unknown("Failed to install model $modelId: ${e.message}", e))
         }
     }
 
@@ -279,6 +329,15 @@ class LocalModelManager(private val context: Context) {
         if (targetFile.exists()) {
             targetFile.delete()
         }
+        val tfliteFile = File(modelsDirectory, "${model.id}.tflite")
+        if (tfliteFile.exists()) {
+            tfliteFile.delete()
+        }
+        val taskFile = File(modelsDirectory, "${model.id}.task")
+        if (taskFile.exists()) {
+            taskFile.delete()
+        }
+
         val updated = model.copy(
             isInstalled = false,
             isEnabled = false,
@@ -296,11 +355,12 @@ class LocalModelManager(private val context: Context) {
     }
 
     fun importLocalModel(file: File, name: String, type: ModelType, capabilities: Set<ModelCapability>): EdgeResult<EdgeModel> {
-        if (!file.exists()) {
-            return EdgeResult.Failure(EdgeAIError.InvalidResponse("Model file does not exist"))
+        if (!file.exists() || !verifyModelArtifact(file)) {
+            return EdgeResult.Failure(EdgeAIError.InvalidResponse("Model file does not exist or is empty"))
         }
+        val extension = file.extension.ifBlank { "bin" }
         val id = "custom-${file.nameWithoutExtension.lowercase().replace(" ", "-")}"
-        val targetFile = File(modelsDirectory, "${id}.bin")
+        val targetFile = File(modelsDirectory, "${id}.${extension}")
         file.copyTo(targetFile, overwrite = true)
         
         val newModel = EdgeModel(
@@ -319,6 +379,7 @@ class LocalModelManager(private val context: Context) {
             status = ModelStatus.INSTALLED
         )
         val current = _models.value.toMutableList()
+        current.removeAll { it.id == id }
         current.add(newModel)
         _models.value = current
         return EdgeResult.Success(newModel)
@@ -340,3 +401,4 @@ class LocalModelManager(private val context: Context) {
         _models.value = list
     }
 }
+

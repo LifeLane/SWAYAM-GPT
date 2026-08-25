@@ -63,13 +63,34 @@ class KnowledgeIngestionPipeline(
             // 4. Embedding & Chunk Indexing
             var embeddedCount = 0
             val chunkEntities = mutableListOf<KnowledgeChunkEntity>()
+            val embeddingEntities = mutableListOf<com.example.edgeaicore.core.database.EmbeddingEntity>()
+            val embeddingDao = database.embeddingDao()
 
             for (chunk in chunks) {
                 val embRes = embeddingEngine.generateEmbedding(chunk.text)
                 var embRef: String? = null
                 if (embRes is EdgeResult.Success) {
                     embeddedCount++
-                    embRef = embRes.data.take(5).joinToString(",") // reference preview
+                    val fullVector = embRes.data
+                    embRef = com.example.edgeaicore.core.embeddings.VectorMath.serializeVector(fullVector)
+
+                    // Also persist in EmbeddingEntity table
+                    val contentHash = java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(chunk.text.toByteArray(Charsets.UTF_8))
+                        .joinToString("") { "%02x".format(it) }
+
+                    embeddingEntities.add(
+                        com.example.edgeaicore.core.database.EmbeddingEntity(
+                            embeddingId = UUID.randomUUID().toString(),
+                            sourceId = chunk.chunkId,
+                            sourceType = "DOCUMENT_CHUNK",
+                            modelId = "local-mobile-embedding-384",
+                            dimension = fullVector.size,
+                            vectorJson = embRef,
+                            contentHash = contentHash,
+                            createdAt = System.currentTimeMillis()
+                        )
+                    )
                 }
 
                 chunkEntities.add(
@@ -88,6 +109,9 @@ class KnowledgeIngestionPipeline(
             }
 
             chunkDao.insertChunks(chunkEntities)
+            if (embeddingEntities.isNotEmpty()) {
+                embeddingDao.insertAll(embeddingEntities)
+            }
 
             EdgeResult.Success(
                 IngestionResult(

@@ -36,8 +36,16 @@ class OfflineLocalModeTest {
         val search = edgeAI.memory.search("local models")
         assertTrue(search.isNotEmpty())
 
+        // Provision local model artifact for offline neural inference verification
+        val modelFile = java.io.File(context.filesDir, "edge_models/gemma-2b-it-litert.bin").apply {
+            parentFile?.mkdirs()
+            writeBytes("TEST_GEMMA_LITERT_MODEL_BINARY_MOCK".toByteArray())
+        }
+        val installRes = edgeAI.models.install("gemma-2b-it-litert")
+        assertTrue(installRes is EdgeResult.Success)
+
         // Local inference succeeds in offline mode
-        val response = edgeAI.ai.generate(AIRequest(prompt = "Explain edge computing"))
+        val response = edgeAI.ai.generate(AIRequest(prompt = "Explain edge computing", modelId = "gemma-2b-it-litert"))
         assertTrue(response is EdgeResult.Success)
         val data = (response as EdgeResult.Success).data
         assertTrue(data.text.isNotBlank())

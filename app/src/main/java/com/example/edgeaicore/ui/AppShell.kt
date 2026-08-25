@@ -36,6 +36,7 @@ import com.example.edgeaicore.ui.memory.MemoryScreen
 import com.example.edgeaicore.ui.models.ModelCenterScreen
 import com.example.edgeaicore.ui.privacy.PrivacyCenterScreen
 import com.example.edgeaicore.ui.profile.ProfileScreen
+import com.example.edgeaicore.ui.setup.ProvisioningOverlay
 import com.example.edgeaicore.ui.storage.StorageCenterScreen
 import com.example.edgeaicore.ui.tools.ConnectedServicesScreen
 import com.example.edgeaicore.ui.tools.ToolPlaygroundScreen
@@ -450,4 +451,7 @@ fun AppShell(
             onDismiss = { showDeveloperModal = false }
         )
     }
+
+    // First-Launch / Preparing Environment Overlay
+    ProvisioningOverlay(edgeAI = edgeAI)
 }

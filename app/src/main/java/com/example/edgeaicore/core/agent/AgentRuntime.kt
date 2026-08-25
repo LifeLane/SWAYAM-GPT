@@ -174,6 +174,7 @@ class AgentRuntime(
                     reasoningResult.data.text
                 }
                 is EdgeResult.Failure -> {
+                    totalTokens += 28
                     "Plan: Provide a direct helpful answer on-device."
                 }
             }

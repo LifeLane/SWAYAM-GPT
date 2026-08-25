@@ -23,17 +23,22 @@ interface AIProvider {
 }
 
 class LocalAIProvider(
-    private val liteRTLMEngine: LiteRTLMEngine
+    val liteRTLMEngine: LiteRTLMEngine
 ) : AIProvider {
     override val providerType: AIProviderType = AIProviderType.LOCAL
 
     override suspend fun isAvailable(): Boolean {
-        return true
+        return liteRTLMEngine.isReady()
     }
 
     override suspend fun generate(request: GenerationRequest): EdgeResult<GenerationResponse> {
         if (!liteRTLMEngine.isReady()) {
-            liteRTLMEngine.initialize(request.modelId, ExecutionBackend.GPU)
+            val initRes = liteRTLMEngine.initialize(request.modelId, ExecutionBackend.GPU)
+            if (initRes is EdgeResult.Failure) {
+                return EdgeResult.Failure(
+                    EdgeAIError.ModelUnavailable("SWAYAM local intelligence is unavailable because no verified local model is loaded.")
+                )
+            }
         }
         return liteRTLMEngine.generate(request)
     }

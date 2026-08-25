@@ -28,7 +28,7 @@ data class AIRequest(
     val topK: Int = 40,
     val topP: Float = 0.95f,
     val maxTokens: Int = 1024,
-    val modelId: String = "gemini-2.5-flash",
+    val modelId: String = "gemma-2b-it-litert",
     val stopSequences: List<String> = emptyList()
 )
 
@@ -43,7 +43,7 @@ data class AIRequest(
  */
 class AIRouter(
     private val context: Context,
-    private val localProvider: LocalAIProvider,
+    val localProvider: LocalAIProvider,
     private val privateServerProvider: PrivateServerAIProvider,
     private val cloudProvider: CloudFallbackAIProvider,
     private val privacyEngine: PrivacyEngine,

@@ -9,6 +9,9 @@ import kotlinx.coroutines.withContext
 
 data class KnowledgeSearchResult(
     val id: String,
+    val documentId: String = id,
+    val chunkIndex: Int = 0,
+    val pageNumber: Int = 1,
     val title: String,
     val contentSnippet: String,
     val score: Float,
@@ -61,6 +64,9 @@ class KnowledgeSearchEngine(
 
                     resultsMap[item.id] = KnowledgeSearchResult(
                         id = item.id,
+                        documentId = item.id,
+                        chunkIndex = 0,
+                        pageNumber = 1,
                         title = item.title,
                         contentSnippet = item.content.take(300),
                         score = score,
@@ -73,14 +79,20 @@ class KnowledgeSearchEngine(
 
             // 2. Semantic Search on Knowledge Chunks
             val chunks = chunkDao.getAllChunksSync()
-            val queryEmbedding = embeddingEngine.generateEmbedding(cleanQuery)
+            val queryEmbeddingRes = embeddingEngine.generateEmbedding(cleanQuery)
 
-            if (queryEmbedding is EdgeResult.Success) {
-                val qVector = queryEmbedding.data
+            if (queryEmbeddingRes is EdgeResult.Success) {
+                val qVector = queryEmbeddingRes.data
                 for (chunk in chunks) {
-                    val chunkEmb = embeddingEngine.generateEmbedding(chunk.text)
-                    if (chunkEmb is EdgeResult.Success) {
-                        val similarity = embeddingEngine.cosineSimilarity(qVector, chunkEmb.data)
+                    val chunkVector = if (!chunk.embeddingReference.isNullOrBlank()) {
+                        com.example.edgeaicore.core.embeddings.VectorMath.deserializeVector(chunk.embeddingReference)
+                    } else {
+                        val embRes = embeddingEngine.generateEmbedding(chunk.text)
+                        if (embRes is EdgeResult.Success) embRes.data else null
+                    }
+
+                    if (chunkVector != null && chunkVector.isNotEmpty()) {
+                        val similarity = com.example.edgeaicore.core.embeddings.VectorMath.cosineSimilarity(qVector, chunkVector)
                         if (similarity >= minScore) {
                             val parent = allItems.find { it.id == chunk.documentId }
                             val existing = resultsMap[chunk.documentId]
@@ -88,7 +100,10 @@ class KnowledgeSearchEngine(
                             val matchType = if (existing != null) "HYBRID" else "SEMANTIC"
 
                             resultsMap[chunk.documentId] = KnowledgeSearchResult(
-                                id = chunk.documentId,
+                                id = chunk.chunkId,
+                                documentId = chunk.documentId,
+                                chunkIndex = chunk.chunkIndex,
+                                pageNumber = chunk.pageNumber,
                                 title = parent?.title ?: "Document Chunk",
                                 contentSnippet = chunk.text.take(300),
                                 score = combinedScore,
@@ -113,19 +128,19 @@ class KnowledgeSearchEngine(
     }
 
     /**
-     * Formats top search results as compact, privacy-safe context strings for agent LLM prompts.
+     * Formats top search results as compact, privacy-safe context strings for agent LLM prompts with exact citations.
      */
     suspend fun getFormattedAgentContext(query: String, maxItems: Int = 3): String {
         return when (val res = search(query, limit = maxItems)) {
             is EdgeResult.Success -> {
                 if (res.data.isEmpty()) ""
                 else buildString {
-                    appendLine("--- RELEVANT KNOWLEDGE BASE CONTEXT ---")
+                    appendLine("--- RELEVANT KNOWLEDGE BASE CONTEXT (ON-DEVICE RAG) ---")
                     res.data.forEachIndexed { i, item ->
-                        appendLine("[${i + 1}] ${item.title} (Match: ${item.matchType}, Score: ${"%.2f".format(item.score)})")
-                        appendLine("    ${item.contentSnippet}")
+                        appendLine("[${i + 1}] Source: ${item.title} (Page ${item.pageNumber}, Chunk ${item.chunkIndex}, Match: ${item.matchType}, Relevance: ${"%.2f".format(item.score)})")
+                        appendLine("    Excerpt: \"${item.contentSnippet}\"")
                     }
-                    appendLine("---------------------------------------")
+                    appendLine("---------------------------------------------------------")
                 }
             }
             is EdgeResult.Failure -> ""

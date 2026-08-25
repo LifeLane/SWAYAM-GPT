@@ -7,7 +7,9 @@ import com.example.edgeaicore.core.ai.AIRequest
 import com.example.edgeaicore.core.ai.AIRouter
 import com.example.edgeaicore.core.cloud.GeminiApiClient
 import com.example.edgeaicore.core.common.AIProviderType
+import com.example.edgeaicore.core.common.EdgeAIError
 import com.example.edgeaicore.core.common.EdgeResult
+import com.example.edgeaicore.core.common.ExecutionBackend
 import com.example.edgeaicore.core.common.PrivacyLevel
 import com.example.edgeaicore.core.common.TaskType
 import com.example.edgeaicore.core.explanation.ExplanationEngine
@@ -683,9 +685,24 @@ class SwayamCore(
             SwayamPersonaRegistry.MASTER_SOVEREIGN_CORE
         }
 
+        val localEngine = aiRouter.localProvider.liteRTLMEngine
+        val activeModelInfo = localEngine.modelInfo()
         val sysPrompt = buildString {
             append(activePersona.systemPrompt).append("\n\n")
-            append(persona.buildSystemPrompt(capabilitiesSummary = SwayamCapabilitiesManifest.getSummaryText()))
+            append(
+                persona.buildSystemPrompt(
+                    capabilitiesSummary = SwayamCapabilitiesManifest.getSummaryText(),
+                    modelState = localEngine.status.value.name,
+                    modelName = activeModelInfo?.name ?: request.modelId,
+                    runtime = localEngine.runtimeInfo(),
+                    backend = localEngine.backendInfo().name,
+                    memoryCount = null,
+                    ragChunksCount = null,
+                    toolsList = listOf("Task Creator", "Calendar", "Memory Vault", "OCR Perception"),
+                    agentsList = listOf("Assistant", "Research", "Memory", "Vision"),
+                    configuredExtensions = emptyList()
+                )
+            )
         }
 
         val aiReq = AIRequest(
@@ -704,41 +721,79 @@ class SwayamCore(
         val aiResult = aiRouter.generate(aiReq)
 
         val latency = System.currentTimeMillis() - startTime
-        val text = when (aiResult) {
-            is EdgeResult.Success -> aiResult.data.text
+        val resolution = when (aiResult) {
+            is EdgeResult.Success -> {
+                val data = aiResult.data
+                ChatResolution(
+                    text = data.text,
+                    provider = data.provider,
+                    networkUsed = data.provider == AIProviderType.CLOUD,
+                    tokensGenerated = data.tokensGenerated,
+                    tokensPerSecond = data.tokensPerSecond,
+                    modelName = data.model,
+                    isSuccess = true
+                )
+            }
             is EdgeResult.Failure -> {
-                "I am SWAYAM, your on-device personal AI assistant. I'm ready to help you manage memories, search indexed documents, or execute tasks securely."
+                val err = aiResult.error
+                val msg = if (err is EdgeAIError.ModelUnavailable) {
+                    "⚠️ **Sovereign AI Core Notice**:\n\n${err.message}\n\nTo perform on-device general conversation, please load a verified model in **Settings → AI Models** or enable an authorized extension."
+                } else {
+                    "⚠️ On-device inference error: ${err.message}"
+                }
+                ChatResolution(
+                    text = msg,
+                    provider = AIProviderType.LOCAL,
+                    networkUsed = false,
+                    tokensGenerated = (msg.length / 4).coerceAtLeast(1),
+                    tokensPerSecond = 0.0,
+                    modelName = "swayam-core",
+                    isSuccess = false
+                )
             }
         }
 
-        val provider = (aiResult as? EdgeResult.Success)?.data?.provider ?: AIProviderType.LOCAL
-
         val explanation = explanationEngine.record(
             featureName = "SWAYAM Conversational Mind [${activePersona.name}]",
-            whatHappened = "Processed conversational reasoning through the on-device LiteRT-LM neural engine / sovereign AI core with ${activePersona.roleTitle}.",
+            whatHappened = "Processed conversational reasoning with ${activePersona.roleTitle} via ${if (resolution.networkUsed) "authorized extension" else "on-device runtime"}.",
             whyReason = "General prompt input: '$query'",
-            confidenceScore = 0.95f,
+            confidenceScore = if (resolution.isSuccess) 0.95f else 0.4f,
             dataSourcesUsed = listOf("SWAYAM Neural Model", activePersona.name),
             wasAiInvolved = true,
-            providerType = provider,
-            privacyLevel = request.privacyLevel
+            providerType = resolution.provider,
+            privacyLevel = request.privacyLevel,
+            executionBackend = if (resolution.provider == AIProviderType.LOCAL) localEngine.backendInfo() else ExecutionBackend.CPU,
+            runtimeEngine = if (resolution.provider == AIProviderType.LOCAL) localEngine.runtimeInfo() else "External Provider",
+            networkUsed = resolution.networkUsed,
+            latencyMs = latency,
+            modelName = resolution.modelName
         )
 
         return EdgeResult.Success(
             SwayamResponse(
-                text = text,
+                text = resolution.text,
                 mode = SwayamProcessingMode.GENERAL_CHAT,
-                provider = provider,
-                networkUsed = provider == AIProviderType.CLOUD,
+                provider = resolution.provider,
+                networkUsed = resolution.networkUsed,
                 latencyMs = latency,
-                tokensGenerated = (text.length / 4).coerceAtLeast(1),
-                tokensPerSecond = 45.0,
-                confidence = 0.95f,
+                tokensGenerated = resolution.tokensGenerated,
+                tokensPerSecond = resolution.tokensPerSecond,
+                confidence = if (resolution.isSuccess) 0.95f else 0.4f,
                 explanation = explanation,
                 activePersonaId = activePersona.id
             )
         )
     }
+
+    private data class ChatResolution(
+        val text: String,
+        val provider: AIProviderType,
+        val networkUsed: Boolean,
+        val tokensGenerated: Int,
+        val tokensPerSecond: Double,
+        val modelName: String,
+        val isSuccess: Boolean
+    )
 
     fun stream(request: SwayamRequest): Flow<String> = flow {
         val sysPrompt = persona.buildSystemPrompt(
