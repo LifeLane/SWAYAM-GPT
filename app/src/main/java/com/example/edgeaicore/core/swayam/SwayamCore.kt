@@ -47,7 +47,7 @@ data class SwayamRequest(
     val topP: Float = 0.95f,
     val maxTokens: Int = 1024,
     val stream: Boolean = true,
-    val modelId: String = "gemini-2.5-flash",
+    val modelId: String = "gemma-2b-it-litert",
     val forcedPersonaId: String? = null,
     val enablePersonaChain: Boolean = false
 )

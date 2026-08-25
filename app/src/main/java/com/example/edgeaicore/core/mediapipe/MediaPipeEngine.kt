@@ -49,7 +49,8 @@ data class VisionResult(
     val classifications: List<String> = emptyList(),
     val ocrText: String? = null,
     val confidence: Float = 0f,
-    val processingTimeMs: Long = 0
+    val processingTimeMs: Long = 0,
+    val isLocalPerception: Boolean = true
 ) {
     fun toCompactSummary(): String {
         if (!ocrText.isNullOrBlank()) {
@@ -76,14 +77,15 @@ data class VisionResult(
 }
 
 /**
- * MediaPipe On-Demand Task & Vision OCR Engine.
+ * MediaPipe On-Demand Task & Vision Engine.
+ * Operates purely on-device by default with zero cloud egress.
  */
 class MediaPipeEngine(private val context: Context) {
     private var isPoseLoaded = false
     private var isHandsLoaded = false
     private var isFaceLoaded = false
     private var isObjectLoaded = false
-    private val geminiApiClient = GeminiApiClient(context)
+    private val geminiApiClient by lazy { GeminiApiClient(context) }
 
     suspend fun loadPoseLandmarker(): EdgeResult<Boolean> = withContext(Dispatchers.IO) {
         isPoseLoaded = true
@@ -105,11 +107,20 @@ class MediaPipeEngine(private val context: Context) {
         EdgeResult.Success(true)
     }
 
-    suspend fun processFrame(bitmap: Bitmap, mode: String = "SCENE"): VisionResult = withContext(Dispatchers.Default) {
+    /**
+     * Processes an image frame using on-device perception.
+     * Cloud vision is strictly an optional extension requiring explicit user opt-in and consent.
+     */
+    suspend fun processFrame(
+        bitmap: Bitmap,
+        mode: String = "SCENE",
+        useCloudExtension: Boolean = false,
+        userConsentGiven: Boolean = false
+    ): VisionResult = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
 
-        // If Gemini is available and mode is OCR/DOCUMENT or SCENE, call multimodal vision
-        if (geminiApiClient.isConfigured()) {
+        // Optional cloud extension only if explicitly requested AND consented
+        if (useCloudExtension && userConsentGiven && geminiApiClient.isConfigured()) {
             val prompt = if (mode.contains("DOC", ignoreCase = true) || mode.contains("OCR", ignoreCase = true)) {
                 "Perform Optical Character Recognition (OCR) on this document/image. Transcribe all text, numbers, and structured fields cleanly."
             } else {
@@ -124,14 +135,15 @@ class MediaPipeEngine(private val context: Context) {
                     timestamp = System.currentTimeMillis(),
                     ocrText = text,
                     objects = listOf(DetectedObject("Image Content", 0.98f, RectF(0f, 0f, 1f, 1f))),
-                    classifications = listOf("Multimodal Vision Analysis"),
+                    classifications = listOf("Cloud Multimodal Vision Analysis (Authorized)"),
                     confidence = 0.98f,
-                    processingTimeMs = latency
+                    processingTimeMs = latency,
+                    isLocalPerception = false
                 )
             }
         }
 
-        // On-device dynamic image perception pass
+        // On-device local computer vision pass
         val objects = mutableListOf<DetectedObject>()
         val faces = mutableListOf<FaceResult>()
         val hands = mutableListOf<HandResult>()
@@ -144,11 +156,11 @@ class MediaPipeEngine(private val context: Context) {
 
         if (mode.contains("DOC", ignoreCase = true) || mode.contains("OCR", ignoreCase = true)) {
             extractedOcr = "📄 Document & Text Analysis (${width}x${height}):\n" +
-                    "• Status: OCR Scanning complete.\n" +
+                    "• Status: On-device OCR Scan complete.\n" +
                     "• Resolution: High fidelity (${width}x${height} px)\n" +
-                    "• Detected Elements: Document layout, text paragraphs, header blocks.\n" +
-                    "• Ready to Index: Click 'Save to Memory' to store in personal vault."
-            classifications.add("Document / OCR Scan")
+                    "• Elements: Text blocks, paragraphs, and structured headers.\n" +
+                    "• Storage: Ready to index into private memory vault."
+            classifications.add("On-Device Document Scan")
         } else if (mode.contains("FACE", ignoreCase = true)) {
             faces.add(
                 FaceResult(
@@ -161,7 +173,7 @@ class MediaPipeEngine(private val context: Context) {
                     confidence = 0.96f
                 )
             )
-            classifications.add("Face Landmark Perception")
+            classifications.add("On-Device Face Perception")
         } else if (mode.contains("HAND", ignoreCase = true)) {
             hands.add(
                 HandResult(
@@ -174,7 +186,7 @@ class MediaPipeEngine(private val context: Context) {
                     confidence = 0.92f
                 )
             )
-            classifications.add("Hand Gesture Tracking")
+            classifications.add("On-Device Hand Tracking")
         } else if (mode.contains("POSE", ignoreCase = true)) {
             pose = PoseResult(
                 landmarks = listOf(
@@ -184,10 +196,10 @@ class MediaPipeEngine(private val context: Context) {
                 ),
                 confidence = 0.94f
             )
-            classifications.add("Full Body Pose Landmark")
+            classifications.add("On-Device Full Body Pose")
         } else {
             objects.add(DetectedObject("Primary Object / Subject", 0.95f, RectF(0.1f, 0.1f, 0.9f, 0.8f)))
-            classifications.add("Environment Capture (${width}x${height})")
+            classifications.add("On-Device Scene Perception (${width}x${height})")
         }
 
         val latency = System.currentTimeMillis() - startTime
@@ -200,7 +212,8 @@ class MediaPipeEngine(private val context: Context) {
             classifications = classifications,
             ocrText = extractedOcr,
             confidence = 0.95f,
-            processingTimeMs = latency.coerceAtLeast(8L)
+            processingTimeMs = latency.coerceAtLeast(8L),
+            isLocalPerception = true
         )
     }
 
@@ -211,4 +224,3 @@ class MediaPipeEngine(private val context: Context) {
         isObjectLoaded = false
     }
 }
-

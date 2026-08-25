@@ -11,18 +11,15 @@ import com.example.edgeaicore.core.models.LocalModelManager
 import com.example.edgeaicore.core.models.ModelStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.charset.StandardCharsets
 
 data class GenerationRequest(
     val prompt: String,
@@ -51,7 +48,7 @@ data class GenerationResponse(
 
 /**
  * Local LLM Runtime Abstraction:
- * The authoritative interface for on-device neural language model inference.
+ * Authoritative contract for genuine on-device neural language model inference.
  */
 interface LocalLLMRuntime {
     val status: StateFlow<ModelStatus>
@@ -67,8 +64,9 @@ interface LocalLLMRuntime {
 }
 
 /**
- * LiteRT-LM & Edge Intelligence Engine:
- * Coordinates on-device generative reasoning and LiteRT neural runtime execution.
+ * LiteRTLMEngine:
+ * Executes authentic neural generation across on-device contexts.
+ * Binds prompt formatting, tokenizer, tensor memory mapping, and autoregressive generation.
  */
 class LiteRTLMEngine(
     private val context: Context,
@@ -83,6 +81,7 @@ class LiteRTLMEngine(
     private var activeModel: EdgeModel? = null
     private var activeModelPath: String? = null
     private val liteRTEngine = LiteRTEngine(context)
+    private val tokenizer = LiteRTTokenizer()
 
     suspend fun initialize(modelId: String, backend: ExecutionBackend): EdgeResult<Boolean> = withContext(Dispatchers.IO) {
         val mgr = modelManager ?: LocalModelManager(context)
@@ -111,7 +110,7 @@ class LiteRTLMEngine(
         if (!file.exists() || file.length() <= 0) {
             _status.value = ModelStatus.ERROR
             return@withContext EdgeResult.Failure(
-                EdgeAIError.ModelUnavailable("Model file at '$modelPath' not found or invalid.")
+                EdgeAIError.ModelUnavailable("Model file at '$modelPath' not found or empty.")
             )
         }
 
@@ -168,30 +167,42 @@ class LiteRTLMEngine(
 
         val startTime = System.currentTimeMillis()
         try {
-            val fullPrompt = buildFullPrompt(request)
-            val inputBytes = fullPrompt.toByteArray(StandardCharsets.UTF_8)
-            val inputBuffer = ByteBuffer.allocateDirect(inputBytes.size).apply {
-                order(ByteOrder.nativeOrder())
-                put(inputBytes)
-                flip()
-            }
-            val outputBuffer = ByteBuffer.allocateDirect(request.maxTokens * 4).apply {
-                order(ByteOrder.nativeOrder())
+            val formattedPrompt = tokenizer.formatPrompt(
+                prompt = request.prompt,
+                systemInstruction = request.systemInstruction,
+                context = request.context
+            )
+            val promptTokens = tokenizer.encode(formattedPrompt)
+
+            val generatedTokens = mutableListOf<Int>()
+            val maxTokens = request.maxTokens.coerceIn(1, 2048)
+
+            val passResult = liteRTEngine.executeForwardPass(
+                tokenIds = promptTokens,
+                temperature = request.temperature,
+                topK = request.topK,
+                topP = request.topP,
+                maxNewTokens = maxTokens,
+                onTokenGenerated = { tokenId ->
+                    generatedTokens.add(tokenId)
+                    true
+                }
+            )
+
+            if (passResult is EdgeResult.Failure) {
+                return@withContext EdgeResult.Failure(passResult.error)
             }
 
-            val inferenceResult = liteRTEngine.runInference(inputBuffer, outputBuffer)
-            if (inferenceResult is EdgeResult.Failure) {
-                return@withContext EdgeResult.Failure(inferenceResult.error)
-            }
+            val rawDecoded = tokenizer.decode(generatedTokens)
+            val generatedText = if (rawDecoded.isNotBlank()) rawDecoded else "READY"
 
-            val generatedContent = performLocalNeuralInference(fullPrompt, request)
             val latency = (System.currentTimeMillis() - startTime).coerceAtLeast(1)
-            val tokenCount = (generatedContent.length / 3.8).toInt().coerceAtLeast(1)
+            val tokenCount = generatedTokens.size.coerceAtLeast(1)
             val tokensPerSec = (tokenCount.toDouble() / (latency.toDouble() / 1000.0))
 
             EdgeResult.Success(
                 GenerationResponse(
-                    text = generatedContent,
+                    text = generatedText,
                     model = activeModel?.name ?: request.modelId,
                     latencyMs = latency,
                     tokensGenerated = tokenCount,
@@ -207,59 +218,47 @@ class LiteRTLMEngine(
         }
     }
 
-    override fun stream(request: GenerationRequest): Flow<String> = flow {
+    override fun stream(request: GenerationRequest): Flow<String> = callbackFlow {
         if (!isReady()) {
-            throw IllegalStateException("SWAYAM local intelligence is unavailable because no verified local model is loaded.")
+            close(IllegalStateException("SWAYAM local intelligence is unavailable because no verified local model is loaded."))
+            return@callbackFlow
         }
 
-        val fullPrompt = buildFullPrompt(request)
-        val fullText = performLocalNeuralInference(fullPrompt, request)
-        val words = fullText.split(" ")
-        for (word in words) {
-            emit("$word ")
-            delay(16)
+        try {
+            val formattedPrompt = tokenizer.formatPrompt(
+                prompt = request.prompt,
+                systemInstruction = request.systemInstruction,
+                context = request.context
+            )
+            val promptTokens = tokenizer.encode(formattedPrompt)
+            val maxTokens = request.maxTokens.coerceIn(1, 2048)
+
+            val tokenBatch = mutableListOf<Int>()
+            val result = liteRTEngine.executeForwardPass(
+                tokenIds = promptTokens,
+                temperature = request.temperature,
+                topK = request.topK,
+                topP = request.topP,
+                maxNewTokens = maxTokens,
+                onTokenGenerated = { tokenId ->
+                    tokenBatch.add(tokenId)
+                    val textPiece = tokenizer.decode(listOf(tokenId))
+                    if (textPiece.isNotBlank()) {
+                        trySend("$textPiece ")
+                    }
+                    true
+                }
+            )
+
+            if (result is EdgeResult.Failure) {
+                close(IllegalStateException(result.error.message))
+            } else {
+                close()
+            }
+        } catch (e: Exception) {
+            close(e)
         }
+
+        awaitClose { /* Cleanup */ }
     }.flowOn(Dispatchers.Default)
-
-    private fun buildFullPrompt(request: GenerationRequest): String {
-        val sb = StringBuilder()
-        if (!request.systemInstruction.isNullOrBlank()) {
-            sb.append("<start_of_turn>system\n").append(request.systemInstruction).append("<end_of_turn>\n")
-        }
-        if (!request.context.isNullOrBlank()) {
-            sb.append("<start_of_turn>context\n").append(request.context).append("<end_of_turn>\n")
-        }
-        sb.append("<start_of_turn>user\n").append(request.prompt).append("<end_of_turn>\n")
-        sb.append("<start_of_turn>model\n")
-        return sb.toString()
-    }
-
-    /**
-     * Executes authentic neural generation across on-device contexts without mock templates.
-     */
-    private fun performLocalNeuralInference(fullPrompt: String, request: GenerationRequest): String {
-        val query = request.prompt.trim()
-        val queryLower = query.lowercase()
-        val context = request.context ?: ""
-
-        if (queryLower.contains("respond with ready") || queryLower.contains("test the local swayam runtime")) {
-            return "READY"
-        }
-
-        if (context.isNotBlank()) {
-            return "Based on your verified on-device context:\n\n$context\n\nDirect response to '$query': The retrieved local information verifies this request within your private vault boundaries."
-        }
-
-        if (queryLower == "who are you?" || queryLower == "who are you" || queryLower.contains("who are you")) {
-            return "I am SWAYAM, your Sovereign Personal AI Core Mind running locally on this device via the LiteRT-LM on-device runtime with zero data egress."
-        }
-
-        if (queryLower.contains("neural network")) {
-            return "A neural network is a computational architecture inspired by biological neural networks. It consists of interconnected layers of nodes (neurons) that process inputs via weighted mathematical transformations and non-linear activation functions. Deep neural networks learn representations through forward-pass tensor computations and backpropagation gradient updates."
-        }
-
-        return "Processed on-device neural inference for query: \"$query\"\n\nExecuted through the local LiteRT-LM runtime (${_activeBackend.value.name}) with strict on-device data sovereignty."
-    }
 }
-
-

@@ -3,14 +3,15 @@ package com.example.edgeaicore.core.storage
 import android.content.Context
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import com.example.edgeaicore.core.common.EdgeResult
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -19,21 +20,20 @@ import javax.crypto.spec.SecretKeySpec
  */
 data class EncryptionVaultStatus(
     val isHardwareBacked: Boolean,
+    val isDegraded: Boolean = !isHardwareBacked,
     val algorithm: String = "AES/GCM/NoPadding",
     val keySizeBits: Int = 256,
     val keyAlias: String = "edge_ai_vault_master_key_v1",
     val provider: String = "AndroidKeyStore",
     val isEncryptedAtRest: Boolean = true,
-    val zeroDataEgressGuaranteed: Boolean = true,
     val selfTestPassed: Boolean = true,
     val selfTestLatencyMs: Long = 0L
 )
 
 /**
- * LocalEncryptionEngine: Hardware-backed AES-256-GCM encryption layer for sticky notes,
- * personal memories, and saved interaction history databases.
- *
- * Ensures all private user data remains strictly encrypted at rest on the edge device.
+ * LocalEncryptionEngine:
+ * Dynamic AES-256-GCM encryption layer for notes, memories, and interaction vaults.
+ * Validates hardware-backed status dynamically via Android KeyStore / KeyInfo.
  */
 class LocalEncryptionEngine(private val context: Context) {
 
@@ -44,11 +44,12 @@ class LocalEncryptionEngine(private val context: Context) {
         private const val GCM_IV_LENGTH = 12
         private const val GCM_TAG_LENGTH = 128
         private const val ENVELOPE_PREFIX = "ENC:v1:"
-        private const val FALLBACK_SECRET_SALT = "EDGE_AI_SOVEREIGN_CORE_LOCAL_AES_256_SALT_SECURE"
+        private const val FALLBACK_SECRET_SALT = "EDGE_AI_SOVEREIGN_CORE_LOCAL_AES_256_SALT"
     }
 
     private val secureRandom = SecureRandom()
     private var cachedKey: SecretKey? = null
+    private var isUsingFallbackKey: Boolean = false
 
     init {
         ensureKeyExists()
@@ -73,13 +74,16 @@ class LocalEncryptionEngine(private val context: Context) {
                     .build()
                 keyGenerator.init(spec)
                 cachedKey = keyGenerator.generateKey()
+                isUsingFallbackKey = false
             } else {
                 val entry = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
                 cachedKey = entry?.secretKey
+                isUsingFallbackKey = cachedKey == null
             }
         } catch (e: Exception) {
-            // Fallback for JVM host testing / sandbox environments without AndroidKeyStore
+            // Degraded software fallback when AndroidKeyStore is unavailable (e.g. JVM unit tests)
             cachedKey = generateFallbackKey()
+            isUsingFallbackKey = true
         }
     }
 
@@ -94,11 +98,36 @@ class LocalEncryptionEngine(private val context: Context) {
         return cachedKey ?: synchronized(this) {
             cachedKey ?: try {
                 val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-                (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.secretKey
-                    ?: generateFallbackKey()
+                val entry = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
+                val key = entry?.secretKey
+                if (key != null) {
+                    isUsingFallbackKey = false
+                    key
+                } else {
+                    isUsingFallbackKey = true
+                    generateFallbackKey()
+                }
             } catch (e: Exception) {
+                isUsingFallbackKey = true
                 generateFallbackKey()
             }.also { cachedKey = it }
+        }
+    }
+
+    private fun checkHardwareBacked(key: SecretKey): Boolean {
+        if (isUsingFallbackKey) return false
+        return try {
+            val factory = SecretKeyFactory.getInstance(key.algorithm, ANDROID_KEYSTORE)
+            val keyInfo = factory.getKeySpec(key, KeyInfo::class.java) as KeyInfo
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                keyInfo.securityLevel == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT ||
+                keyInfo.securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX
+            } else {
+                @Suppress("DEPRECATION")
+                keyInfo.isInsideSecureHardware
+            }
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -116,7 +145,7 @@ class LocalEncryptionEngine(private val context: Context) {
      */
     fun encryptString(plainText: String): String {
         if (plainText.isEmpty()) return plainText
-        if (isEncrypted(plainText)) return plainText // Already encrypted
+        if (isEncrypted(plainText)) return plainText
 
         return try {
             val key = getSecretKey()
@@ -131,13 +160,12 @@ class LocalEncryptionEngine(private val context: Context) {
 
             "$ENVELOPE_PREFIX$ivBase64:$cipherBase64"
         } catch (e: Exception) {
-            // If encryption fails for any platform reason, return safe envelope fallback
             plainText
         }
     }
 
     /**
-     * Decrypts an encrypted envelope back to plaintext. If text is unencrypted, returns as-is.
+     * Decrypts an encrypted envelope back to plaintext.
      */
     fun decryptString(encryptedEnvelope: String): String {
         if (!isEncrypted(encryptedEnvelope)) return encryptedEnvelope
@@ -158,7 +186,6 @@ class LocalEncryptionEngine(private val context: Context) {
             val decryptedBytes = cipher.doFinal(cipherBytes)
             String(decryptedBytes, Charsets.UTF_8)
         } catch (e: Exception) {
-            // Graceful fallback to avoid data loss
             encryptedEnvelope
         }
     }
@@ -186,7 +213,7 @@ class LocalEncryptionEngine(private val context: Context) {
     }
 
     /**
-     * Runs a real cryptographic self-test to verify hardware encryption integrity and measure latency.
+     * Runs a real cryptographic self-test to verify encryption integrity and measure latency.
      */
     fun runCryptographicSelfTest(): EncryptionVaultStatus {
         val startTime = System.currentTimeMillis()
@@ -195,15 +222,17 @@ class LocalEncryptionEngine(private val context: Context) {
         val decrypted = decryptString(encrypted)
         val latency = System.currentTimeMillis() - startTime
         val testSuccess = (decrypted == testPayload) && isEncrypted(encrypted)
+        val key = getSecretKey()
+        val hardwareBacked = checkHardwareBacked(key)
 
         return EncryptionVaultStatus(
-            isHardwareBacked = true,
+            isHardwareBacked = hardwareBacked,
+            isDegraded = !hardwareBacked,
             algorithm = TRANSFORMATION,
             keySizeBits = 256,
             keyAlias = KEY_ALIAS,
-            provider = try { KeyStore.getInstance(ANDROID_KEYSTORE).provider.name } catch (_: Exception) { "AndroidKeyStore / Local TEE" },
+            provider = if (!isUsingFallbackKey) "AndroidKeyStore" else "Degraded Software Fallback",
             isEncryptedAtRest = true,
-            zeroDataEgressGuaranteed = true,
             selfTestPassed = testSuccess,
             selfTestLatencyMs = latency
         )
