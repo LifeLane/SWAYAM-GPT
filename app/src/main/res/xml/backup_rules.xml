@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Exclude heavy binary model files and encrypted database from cloud auto-backup -->
-    <exclude domain="file" path="edge_models" />
-    <exclude domain="database" path="swayam_edge_database" />
-    <exclude domain="database" path="swayam_edge_database-wal" />
-    <exclude domain="database" path="swayam_edge_database-shm" />
+    <!-- By specifying only shared preferences, all binary models and databases are excluded by default -->
     <include domain="sharedpref" path="." />
 </full-backup-content>
