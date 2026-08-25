@@ -20,7 +20,7 @@ data class EdgeUserSettings(
     val defaultPrivacyLevel: String = "LOCAL_ONLY",
     // Controllable System Prompt & Technical LLM Parameters
     val systemPrompt: String = "You are SWAYAM GPT, a sovereign personal intelligence assistant. Provide articulate, well-structured, precise, and helpful responses based on on-device context and personal memories.",
-    val activeModelId: String = "gemini-2.5-flash",
+    val activeModelId: String = "gemma-2b-it-litert",
     val temperature: Float = 0.7f,
     val topK: Int = 40,
     val topP: Float = 0.95f,
@@ -83,7 +83,7 @@ class PreferenceEngine(private val context: Context) {
             preferredAiBackend = prefs[KEY_BACKEND] ?: "Auto (NPU/GPU/CPU)",
             defaultPrivacyLevel = prefs[KEY_DEFAULT_PRIVACY] ?: "LOCAL_ONLY",
             systemPrompt = prefs[KEY_SYSTEM_PROMPT] ?: "You are SWAYAM GPT, a sovereign personal intelligence assistant. Provide articulate, well-structured, precise, and helpful responses based on on-device context and personal memories.",
-            activeModelId = prefs[KEY_ACTIVE_MODEL] ?: "gemini-2.5-flash",
+            activeModelId = prefs[KEY_ACTIVE_MODEL] ?: "gemma-2b-it-litert",
             temperature = prefs[KEY_TEMPERATURE] ?: 0.7f,
             topK = prefs[KEY_TOP_K] ?: 40,
             topP = prefs[KEY_TOP_P] ?: 0.95f,

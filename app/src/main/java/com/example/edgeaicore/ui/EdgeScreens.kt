@@ -1204,8 +1204,7 @@ fun AgentScreen(
         }
 
         // Multi-Step Execution Trace
-        if (lastResult != null) {
-            val res = lastResult!!
+        lastResult?.let { res ->
             EdgeCard(
                 backgroundColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
                 borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
@@ -1793,9 +1792,9 @@ fun PrivacyScreen(edgeAI: EdgeAICore) {
             }
         }
 
-        if (wipeSuccessMessage != null) {
+        wipeSuccessMessage?.let { msg ->
             Text(
-                text = wipeSuccessMessage!!,
+                text = msg,
                 color = LocalAIGreen,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp

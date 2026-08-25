@@ -171,10 +171,10 @@ fun CaptureScreen(
                         selected = selectedMode == mode,
                         onClick = {
                             selectedMode = mode
-                            if (activeBitmap != null) {
+                            activeBitmap?.let { bmp ->
                                 isProcessing = true
                                 coroutineScope.launch {
-                                    val result = edgeAI.vision.detect(activeBitmap!!, mode.name)
+                                    val result = edgeAI.vision.detect(bmp, mode.name)
                                     visionResult = result
                                     capturedNote = result.toCompactSummary()
                                     isProcessing = false
@@ -194,9 +194,10 @@ fun CaptureScreen(
                     .height(300.dp)
                     .clip(RoundedCornerShape(20.dp))
             ) {
-                if (activeBitmap != null) {
+                val bmp = activeBitmap
+                if (bmp != null) {
                     Image(
-                        bitmap = activeBitmap!!.asImageBitmap(),
+                        bitmap = bmp.asImageBitmap(),
                         contentDescription = "Frozen Frame",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()

@@ -61,11 +61,11 @@ class DocumentStorage(
 
     suspend fun readDocumentContent(docId: String): EdgeResult<String> = withContext(Dispatchers.IO) {
         val docRes = documentRepository.getById(docId)
-        if (docRes is EdgeResult.Failure || (docRes as EdgeResult.Success).data == null) {
+        if (docRes !is EdgeResult.Success || docRes.data == null) {
             return@withContext EdgeResult.Failure(IllegalArgumentException("Document not found"))
         }
 
-        val doc = docRes.data!!
+        val doc = docRes.data
         val fileName = doc.relativeStoragePath.substringAfterLast("/")
         storageEngine.readString(StorageDirectory.DOCUMENTS, fileName)
     }

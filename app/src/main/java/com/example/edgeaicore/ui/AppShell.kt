@@ -42,6 +42,8 @@ import com.example.edgeaicore.ui.tools.ConnectedServicesScreen
 import com.example.edgeaicore.ui.tools.ToolPlaygroundScreen
 import com.example.edgeaicore.ui.tools.ToolsScreen
 import com.example.edgeaicore.ui.voice.AudioJournalScreen
+import com.example.edgeaicore.ui.playground.PlaygroundScreen
+import com.example.edgeaicore.ui.playground.PlaygroundViewModel
 import com.example.ui.theme.LocalAIGreen
 
 enum class MainDestination(
@@ -50,6 +52,7 @@ enum class MainDestination(
     val unselectedIcon: ImageVector
 ) {
     HOME("Home", Icons.Filled.Home, Icons.Outlined.Home),
+    PLAYGROUND("Playground", Icons.Filled.Terminal, Icons.Outlined.Terminal),
     MEMORY("Memory", Icons.Filled.Psychology, Icons.Outlined.Psychology),
     AGENT("Agent", Icons.Filled.SmartToy, Icons.Outlined.SmartToy),
     TOOLS("Tools", Icons.Filled.Extension, Icons.Outlined.Extension),
@@ -90,6 +93,7 @@ fun AppShell(
     }
 
     var agentInitialGoal by remember { mutableStateOf<String?>(null) }
+    val playgroundViewModel = remember { PlaygroundViewModel(edgeAI.context, edgeAI) }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val isWideScreen = maxWidth > 600.dp
@@ -347,7 +351,10 @@ fun AppShell(
                                 MainDestination.HOME -> {
                                     HomeScreen(
                                         edgeAI = edgeAI,
-                                        onNavigateToAsk = { prompt -> openUnifiedConsole(prompt) },
+                                        onNavigateToAsk = { prompt ->
+                                            if (prompt.isNotBlank()) playgroundViewModel.sendMessage(prompt)
+                                            currentMainDestination = MainDestination.PLAYGROUND
+                                        },
                                         onNavigateToCapture = { currentSubDestination = SubDestination.Capture },
                                         onNavigateToMemory = { currentMainDestination = MainDestination.MEMORY },
                                         onNavigateToAgent = { goal ->
@@ -363,10 +370,20 @@ fun AppShell(
                                         onShowExplanation = { activeExplanation = it }
                                     )
                                 }
+                                MainDestination.PLAYGROUND -> {
+                                    PlaygroundScreen(
+                                        edgeAI = edgeAI,
+                                        viewModel = playgroundViewModel,
+                                        onShowExplanation = { activeExplanation = it }
+                                    )
+                                }
                                 MainDestination.MEMORY -> {
                                     MemoryScreen(
                                         edgeAI = edgeAI,
-                                        onNavigateToAskMemory = { prompt -> openUnifiedConsole(prompt) },
+                                        onNavigateToAskMemory = { prompt ->
+                                            if (prompt.isNotBlank()) playgroundViewModel.sendMessage(prompt)
+                                            currentMainDestination = MainDestination.PLAYGROUND
+                                        },
                                         onSelectMemory = { memory -> selectedMemoryForDetail = memory }
                                     )
                                 }
@@ -421,14 +438,15 @@ fun AppShell(
     }
 
     // Memory Detail Bottom Sheet
-    if (selectedMemoryForDetail != null) {
+    selectedMemoryForDetail?.let { mem ->
         MemoryDetailSheet(
-            memory = selectedMemoryForDetail!!,
+            memory = mem,
             edgeAI = edgeAI,
             onDismiss = { selectedMemoryForDetail = null },
             onAskAIAboutMemory = { prompt ->
                 selectedMemoryForDetail = null
-                openUnifiedConsole(prompt)
+                if (prompt.isNotBlank()) playgroundViewModel.sendMessage(prompt)
+                currentMainDestination = MainDestination.PLAYGROUND
             },
             onMemoryDeleted = {
                 selectedMemoryForDetail = null
